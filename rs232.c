@@ -610,7 +610,7 @@ int RS232_disableHwFlowControl(RS232_FD fd)
 
 #else  /* Windows */
 
-RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int flags)
+ADDAPI RS232_FD ADDCALL RS232_Open(const char *devname, int baudrate, const char *mode, int flags)
 {
 
   char mode_str[128];
@@ -837,7 +837,7 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
   return fd;
 }
 
-ssize_t RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_msec)
+ADDAPI ssize_t ADDCALL RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_msec)
 {
 
   ssize_t read_bytes;
@@ -879,7 +879,7 @@ ssize_t RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_m
   return read_bytes;
 }
 
-ssize_t RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int timeout_msec)
+ADDAPI ssize_t ADDCALL RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int timeout_msec)
 {
 
   ssize_t written_bytes;
@@ -920,7 +920,7 @@ ssize_t RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int ti
   return written_bytes;
 }
 
-int RS232_Close(RS232_FD fd)
+ADDAPI int ADDCALL RS232_Close(RS232_FD fd)
 {
 
   return CloseHandle(fd) ? 0 : -1;
@@ -931,7 +931,7 @@ int RS232_Close(RS232_FD fd)
  * https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getcommmodemstatus
  */
 
-int RS232_IsDCDEnabled(RS232_FD fd)
+ADDAPI int ADDCALL RS232_IsDCDEnabled(RS232_FD fd)
 {
 
   DWORD status;
@@ -942,7 +942,7 @@ int RS232_IsDCDEnabled(RS232_FD fd)
 }
 
 
-int RS232_IsRINGEnabled(RS232_FD fd)
+ADDAPI int ADDCALL RS232_IsRINGEnabled(RS232_FD fd)
 {
 
   DWORD status;
@@ -952,7 +952,7 @@ int RS232_IsRINGEnabled(RS232_FD fd)
   return (status & MS_RING_ON) ? 1 : 0;
 }
 
-int RS232_IsCTSEnabled(RS232_FD fd)
+ADDAPI int ADDCALL RS232_IsCTSEnabled(RS232_FD fd)
 {
 
   DWORD status;
@@ -962,7 +962,7 @@ int RS232_IsCTSEnabled(RS232_FD fd)
   return (status & MS_CTS_ON) ? 1 : 0;
 }
 
-int RS232_IsDSREnabled(RS232_FD fd)
+ADDAPI int ADDCALL RS232_IsDSREnabled(RS232_FD fd)
 {
 
   DWORD status;
@@ -972,26 +972,26 @@ int RS232_IsDSREnabled(RS232_FD fd)
   return (status & MS_DSR_ON) ? 1 : 0;
 }
 
-int RS232_enableDTR(RS232_FD fd)
+ADDAPI int ADDCALL RS232_enableDTR(RS232_FD fd)
 {
 
   return EscapeCommFunction(fd, SETDTR) ? 0 : -1;
 }
 
-int RS232_disableDTR(RS232_FD fd)
+ADDAPI int ADDCALL RS232_disableDTR(RS232_FD fd)
 {
 
   return EscapeCommFunction(fd, CLRDTR) ? 0 : -1;
 }
 
-int RS232_enableRTS(RS232_FD fd)
+ADDAPI int ADDCALL RS232_enableRTS(RS232_FD fd)
 {
 
   return EscapeCommFunction(fd, SETRTS) ? 0 : -1;
 }
 
 
-int RS232_disableRTS(RS232_FD fd)
+ADDAPI int ADDCALL RS232_disableRTS(RS232_FD fd)
 {
 
   return EscapeCommFunction(fd, CLRRTS) ? 0 : -1;
@@ -1001,7 +1001,7 @@ int RS232_disableRTS(RS232_FD fd)
  * https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-setcommbreak
  */
 
-int RS232_enableBREAK(RS232_FD fd)
+ADDAPI int ADDCALL RS232_enableBREAK(RS232_FD fd)
 {
 
   if (!SetCommBreak(fd))  /* Turn break on, that is, start sending zero bits. */
@@ -1017,7 +1017,7 @@ int RS232_enableBREAK(RS232_FD fd)
  * https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-clearcommbreak
  */
 
-int RS232_disableBREAK(RS232_FD fd)
+ADDAPI int ADDCALL RS232_disableBREAK(RS232_FD fd)
 {
 
   if (!ClearCommBreak(fd))  /* Turn break off, that is, stop sending zero bits. */
@@ -1034,21 +1034,21 @@ int RS232_disableBREAK(RS232_FD fd)
  * https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-purgecomm
  */
 
-int RS232_flushRX(RS232_FD fd)
+ADDAPI int ADDCALL RS232_flushRX(RS232_FD fd)
 {
 
   return PurgeComm(fd, PURGE_RXCLEAR | PURGE_RXABORT) ? 0 : -1;
 }
 
 
-int RS232_flushTX(RS232_FD fd)
+ADDAPI int ADDCALL RS232_flushTX(RS232_FD fd)
 {
 
   return PurgeComm(fd, PURGE_TXCLEAR | PURGE_TXABORT) ? 0 : -1;
 }
 
 
-int RS232_flushRXTX(RS232_FD fd)
+ADDAPI int ADDCALL RS232_flushRXTX(RS232_FD fd)
 {
 
   return (PurgeComm(fd, PURGE_RXCLEAR | PURGE_RXABORT) &&
@@ -1056,7 +1056,7 @@ int RS232_flushRXTX(RS232_FD fd)
          ? 0 : -1;
 }
 
-int RS232_enableHwFlowControl(RS232_FD fd)
+ADDAPI int ADDCALL RS232_enableHwFlowControl(RS232_FD fd)
 {
 
   DCB port_settings;
@@ -1079,7 +1079,7 @@ int RS232_enableHwFlowControl(RS232_FD fd)
   return 0;
 }
 
-int RS232_disableHwFlowControl(RS232_FD fd)
+ADDAPI int ADDCALL RS232_disableHwFlowControl(RS232_FD fd)
 {
 
   DCB port_settings;

@@ -44,12 +44,25 @@
 #include <sys/file.h>
 #include <errno.h>
 
+#define ADDAPI
+#define ADDCALL
+
 typedef int RS232_FD;
 
 #define RS232_INVALID_FD    -1
 
 #else
 #include <windows.h>
+
+/* You should define ADD_EXPORTS *only* when building the DLL. */
+#ifdef ADD_EXPORTS
+  #define ADDAPI __declspec(dllexport)
+#else
+  #define ADDAPI __declspec(dllimport)
+#endif
+
+/* Define calling convention in one place, for convenience. */
+#define ADDCALL __cdecl
 
 typedef HANDLE RS232_FD;
 
@@ -70,25 +83,25 @@ typedef _W64 int ssize_t;
 extern "C" {
 #endif
 
-RS232_FD RS232_Open(const char*, int, const char*, int);
-int RS232_Close(RS232_FD);
-ssize_t RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_msec);
-ssize_t RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int timeout_msec);
-int RS232_IsDCDEnabled(RS232_FD);
-int RS232_IsRINGEnabled(RS232_FD);
-int RS232_IsCTSEnabled(RS232_FD);
-int RS232_IsDSREnabled(RS232_FD);
-int RS232_enableDTR(RS232_FD);
-int RS232_disableDTR(RS232_FD);
-int RS232_enableRTS(RS232_FD);
-int RS232_disableRTS(RS232_FD);
-int RS232_enableBREAK(RS232_FD);
-int RS232_disableBREAK(RS232_FD);
-int RS232_flushRX(RS232_FD);
-int RS232_flushTX(RS232_FD);
-int RS232_flushRXTX(RS232_FD);
-int RS232_enableHwFlowControl(RS232_FD);
-int RS232_disableHwFlowControl(RS232_FD);
+ADDAPI RS232_FD ADDCALL RS232_Open(const char*, int, const char*, int);
+ADDAPI int ADDCALL RS232_Close(RS232_FD);
+ADDAPI ssize_t ADDCALL RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_msec);
+ADDAPI ssize_t ADDCALL RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int timeout_msec);
+ADDAPI int ADDCALL RS232_IsDCDEnabled(RS232_FD);
+ADDAPI int ADDCALL RS232_IsRINGEnabled(RS232_FD);
+ADDAPI int ADDCALL RS232_IsCTSEnabled(RS232_FD);
+ADDAPI int ADDCALL RS232_IsDSREnabled(RS232_FD);
+ADDAPI int ADDCALL RS232_enableDTR(RS232_FD);
+ADDAPI int ADDCALL RS232_disableDTR(RS232_FD);
+ADDAPI int ADDCALL RS232_enableRTS(RS232_FD);
+ADDAPI int ADDCALL RS232_disableRTS(RS232_FD);
+ADDAPI int ADDCALL RS232_enableBREAK(RS232_FD);
+ADDAPI int ADDCALL RS232_disableBREAK(RS232_FD);
+ADDAPI int ADDCALL RS232_flushRX(RS232_FD);
+ADDAPI int ADDCALL RS232_flushTX(RS232_FD);
+ADDAPI int ADDCALL RS232_flushRXTX(RS232_FD);
+ADDAPI int ADDCALL RS232_enableHwFlowControl(RS232_FD);
+ADDAPI int ADDCALL RS232_disableHwFlowControl(RS232_FD);
 
 #ifdef __cplusplus
 } /* extern "C" */
