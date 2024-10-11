@@ -16,7 +16,7 @@ CC ?= gcc
 
 CFLAGS ?= -DNDEBUG -Wall -Wextra -Wshadow -Wformat-nonliteral -Wformat-security -Wtype-limits -O2
 
-LDFLAGS ?= -L./
+LDFLAGS ?= -L./ -Wl,-rpath=./
 
 all: test_rx test_tx
 
