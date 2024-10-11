@@ -117,6 +117,7 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
     case  460800 :
       baudrate = B460800;
       break;
+#if defined(__linux__)
     case  500000 :
       baudrate = B500000;
       break;
@@ -150,6 +151,7 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
     case 4000000 :
       baudrate = B4000000;
       break;
+#endif
     default      :
       fprintf(stderr, "Invalid baudrate %d.\n", baudrate);
       return RS232_INVALID_FD;
