@@ -1,13 +1,20 @@
 #
 #
-# Author: Teunis van Beelen
+# Author: Teunis van Beelen, Xael South
 #
-# email: teuniz@protonmail.com
+# Copyright (C) 2005 - 2023 Teunis van Beelen
+# Copyright (C) 2024 - 2024 Xael South
 #
+# Email: teuniz@protonmail.com
+#        xael.south@yandex.com
 #
 
-CC = gcc
-CFLAGS = -Wall -Wextra -Wshadow -Wformat-nonliteral -Wformat-security -Wtype-limits -O2
+CC ?= gcc
+#CC ?= x86_64-w64-mingw32-gcc
+#CC ?= i686-w64-mingw32-gcc
+# Or just compile by: make CC=x86_64-w64-mingw32-gcc or make CC=i686-w64-mingw32-gcc
+
+CFLAGS ?= -DNDEBUG -Wall -Wextra -Wshadow -Wformat-nonliteral -Wformat-security -Wtype-limits -O2
 
 objects = rs232.o
 
@@ -29,14 +36,5 @@ rs232.o : rs232.h rs232.c
 	$(CC) $(CFLAGS) -c rs232.c -o rs232.o
 
 clean :
-	$(RM) test_rx test_tx $(objects) demo_rx.o demo_tx.o rs232.o
-
-#
-#
-#
-#
-
-
-
-
+	$(RM) test_rx test_tx $(objects) demo_rx.o demo_tx.o
 

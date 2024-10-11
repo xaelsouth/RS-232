@@ -11,56 +11,57 @@ compile with the command: gcc demo_tx.c rs232.c -Wall -Wextra -o2 -o test_tx
 **************************************************/
 
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
 
-#ifdef _WIN32
-#include <Windows.h>
-#else
+#if defined(__linux__) || defined(__FreeBSD__)
 #include <unistd.h>
+
+#define sleep(msecs) usleep(msecs*1000)
+#else
+#include <windows.h>
+
+#define sleep(msecs) Sleep(msecs)
 #endif
 
 #include "rs232.h"
 
-
-
-int main()
+int main(int argc, char *argv[])
 {
-  int i=0,
-      cport_nr=0,        /* /dev/ttyS0 (COM1 on windows) */
-      bdrate=9600;       /* 9600 baud */
 
-  char mode[]={'8','N','1',0},
-       str[2][512];
-
-
-  strcpy(str[0], "The quick brown fox jumped over the lazy grey dog.\n");
-
-  strcpy(str[1], "Happy serial programming!\n");
-
-  if(RS232_OpenComport(cport_nr, bdrate, mode, 0))
+  if (argc < 2)
   {
-    printf("Can not open comport\n");
-
-    return(0);
+    fprintf(stderr, "Usage example: %s /dev/ttyUSB0.\n", argv[0]);
+    return EXIT_FAILURE;
   }
 
-  while(1)
+  const char *devname = argv[1];
+  int baudrate = 115200;
+  const char *mode = "8N1";
+  int flags_open = 0;
+  int flags_write = 0;
+  int write_timeout = 2000; /* Milliseconds. */
+
+  const char str[2][512] = {
+    [0] = "The quick brown fox jumped over the lazy grey dog.\r\n",
+    [1] = "Happy serial programming!\r\n",
+  };
+
+  fprintf(stdout, "Using serial port %s.\n", devname);
+
+  RS232_FD fd = RS232_Open(devname, baudrate, mode, flags_open);
+
+  if (fd == RS232_INVALID_FD)
   {
-    RS232_cputs(cport_nr, str[i]);
-
-    printf("sent: %s\n", str[i]);
-
-#ifdef _WIN32
-    Sleep(1000);
-#else
-    usleep(1000000);  /* sleep for 1 Second */
-#endif
-
-    i++;
-
-    i %= 2;
+    return EXIT_FAILURE;
   }
 
-  return(0);
+  for (int i = 0; true; i ^= 1)
+  {
+    RS232_Write(fd, str[i], strlen(str[i]), flags_write, write_timeout);
+    sleep(1000);
+  }
+
+  return EXIT_SUCCESS;
 }
-

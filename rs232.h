@@ -1,11 +1,13 @@
 /*
 ***************************************************************************
 *
-* Author: Teunis van Beelen
+* Author: Teunis van Beelen, Xael South
 *
 * Copyright (C) 2005 - 2023 Teunis van Beelen
+* Copyright (C) 2024 - 2024 Xael South
 *
 * Email: teuniz@protonmail.com
+*        xael.south@yandex.com
 *
 ***************************************************************************
 *
@@ -30,58 +32,66 @@
 #ifndef rs232_INCLUDED
 #define rs232_INCLUDED
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include <stdio.h>
-#include <string.h>
-
-
+#include <stddef.h>
 
 #if defined(__linux__) || defined(__FreeBSD__)
-
 #include <termios.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <limits.h>
 #include <sys/file.h>
 #include <errno.h>
 
-#else
+typedef int RS232_FD;
 
+#define RS232_INVALID_FD    -1
+
+#else
 #include <windows.h>
+
+typedef HANDLE RS232_FD;
+
+#define RS232_INVALID_FD    INVALID_HANDLE_VALUE
+
+#ifndef _SSIZE_T_DEFINED
+#ifdef  _WIN64
+typedef __int64 ssize_t;
+#else
+typedef _W64 int ssize_t;
+#endif /* defined(_WIN64) */
+#define _SSIZE_T_DEFINED
+#endif /* !_SSIZE_T_DEFINED */
 
 #endif
 
-int RS232_OpenComport(int, int, const char *, int);
-int RS232_PollComport(int, unsigned char *, int);
-int RS232_SendByte(int, unsigned char);
-int RS232_SendBuf(int, unsigned char *, int);
-void RS232_CloseComport(int);
-void RS232_cputs(int, const char *);
-int RS232_IsDCDEnabled(int);
-int RS232_IsRINGEnabled(int);
-int RS232_IsCTSEnabled(int);
-int RS232_IsDSREnabled(int);
-void RS232_enableDTR(int);
-void RS232_disableDTR(int);
-void RS232_enableRTS(int);
-void RS232_disableRTS(int);
-void RS232_enableBREAK(int);
-void RS232_disableBREAK(int);
-void RS232_flushRX(int);
-void RS232_flushTX(int);
-void RS232_flushRXTX(int);
-int RS232_GetPortnr(const char *);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+RS232_FD RS232_Open(const char*, int, const char*, int);
+int RS232_Close(RS232_FD);
+ssize_t RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_msec);
+ssize_t RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int timeout_msec);
+int RS232_IsDCDEnabled(RS232_FD);
+int RS232_IsRINGEnabled(RS232_FD);
+int RS232_IsCTSEnabled(RS232_FD);
+int RS232_IsDSREnabled(RS232_FD);
+int RS232_enableDTR(RS232_FD);
+int RS232_disableDTR(RS232_FD);
+int RS232_enableRTS(RS232_FD);
+int RS232_disableRTS(RS232_FD);
+int RS232_enableBREAK(RS232_FD);
+int RS232_disableBREAK(RS232_FD);
+int RS232_flushRX(RS232_FD);
+int RS232_flushTX(RS232_FD);
+int RS232_flushRXTX(RS232_FD);
+int RS232_enableHwFlowControl(RS232_FD);
+int RS232_disableHwFlowControl(RS232_FD);
 
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
 
 #endif
-
-

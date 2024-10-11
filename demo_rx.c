@@ -11,62 +11,67 @@ compile with the command: gcc demo_rx.c rs232.c -Wall -Wextra -o2 -o test_rx
 **************************************************/
 
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
+#include <ctype.h>
 
-#ifdef _WIN32
-#include <Windows.h>
-#else
+#if defined(__linux__) || defined(__FreeBSD__)
 #include <unistd.h>
+#else
+#include <windows.h>
 #endif
 
 #include "rs232.h"
 
-
-
-int main()
+int main(int argc, char *argv[])
 {
-  int i, n,
-      cport_nr=0,        /* /dev/ttyS0 (COM1 on windows) */
-      bdrate=9600;       /* 9600 baud */
 
-  unsigned char buf[4096];
-
-  char mode[]={'8','N','1',0};
-
-
-  if(RS232_OpenComport(cport_nr, bdrate, mode, 0))
+  if (argc < 2)
   {
-    printf("Can not open comport\n");
-
-    return(0);
+    fprintf(stderr, "Usage example: %s /dev/ttyUSB0.\n", argv[0]);
+    return EXIT_FAILURE;
   }
 
-  while(1)
+  const char *devname = argv[1];
+  int baudrate = 115200;
+  const char *mode = "8N1";
+  int flags_open = 0;
+  int flags_read = 0;
+  int read_timeout = 500; /* Milliseconds. */
+
+  char buf[4096];
+
+  fprintf(stdout, "Using serial port %s.\n", devname);
+
+  RS232_FD fd = RS232_Open(devname, baudrate, mode, flags_open);
+
+  if (fd == RS232_INVALID_FD)
   {
-    n = RS232_PollComport(cport_nr, buf, 4095);
+    return EXIT_FAILURE;
+  }
 
-    if(n > 0)
+  while (true)
+  {
+    ssize_t read_bytes = RS232_Read(fd, buf, sizeof(buf), flags_read, read_timeout);
+
+    if (read_bytes > 0)
     {
-      buf[n] = 0;   /* always put a "null" at the end of a string! */
-
-      for(i=0; i < n; i++)
+      for (ssize_t i = 0; i < read_bytes; i++)
       {
-        if(buf[i] < 32)  /* replace unreadable control-codes by dots */
+        if (isprint(buf[i]) == 0)  /* replace unreadable control-codes by dots */
         {
           buf[i] = '.';
         }
+
+        putc(buf[i], stdout);
       }
-
-      printf("received %i bytes: %s\n", n, (char *)buf);
     }
-
-#ifdef _WIN32
-    Sleep(100);
-#else
-    usleep(100000);  /* sleep for 100 milliSeconds */
-#endif
+    else
+    {
+      fprintf(stdout, "Nothing read: timeout after %d.\n", read_timeout);
+    }
   }
 
-  return(0);
+  return EXIT_SUCCESS;
 }
-
