@@ -1,9 +1,9 @@
 /**************************************************
 
 file: demo_rx.c
-purpose: simple demo that receives characters from
-the serial port and print them on the screen,
-exit the program by pressing Ctrl-C
+purpose: Simple demo that receives characters from
+         the serial port and print them on the screen,
+         exit the program by pressing Ctrl-C.
 
 compile with the command: gcc demo_rx.c rs232.c -Wall -Wextra -o test_rx
 

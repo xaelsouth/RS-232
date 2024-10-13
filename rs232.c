@@ -1,8 +1,6 @@
 /*
 ***************************************************************************
 *
-* Author: Teunis van Beelen
-*
 * Author: Teunis van Beelen, Xael South
 *
 * Copyright (C) 2005 - 2023 Teunis van Beelen
@@ -27,7 +25,6 @@
 *
 ***************************************************************************
 */
-
 
 /* 
  * For more info and how to use this library, visit: https://github.com/xaelsouth/RS-232
