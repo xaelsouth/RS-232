@@ -1,3 +1,13 @@
+/**************************************************
+
+file: test_rs232.c
+purpose: simple demo that implements multiple unit tests. Use null-modem
+cable to run it.
+
+compile with the command: gcc test_rs232.c rs232.c -Wall -Wextra -o test_rs232
+
+**************************************************/
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>

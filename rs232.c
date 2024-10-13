@@ -29,8 +29,9 @@
 */
 
 
-/* For more info and how to use this library, visit: https://www.teuniz.net/RS-232
- *                                                   https://github.com/xaelsouth/RS-232
+/* 
+ * For more info and how to use this library, visit: https://github.com/xaelsouth/RS-232
+ *                                                   https://www.teuniz.net/RS-232
  */
 
 #include <stdbool.h>
