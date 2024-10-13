@@ -1,7 +1,7 @@
 # RS232 for Linux, FreeBSD and Windows
 
-RS232 library to abstract serial interfaces and make it easier to work them more comfortable
-on different platforms.
+RS232 library created to abstract serial interfaces and make it easier to work with them on
+different platforms.
 
 This project is heavilly based on work of Teunis van Beelen, see https://www.teuniz.net/RS-232
 
