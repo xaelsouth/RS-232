@@ -1,4 +1,3 @@
-
 /**************************************************
 
 file: demo_tx.c
@@ -6,7 +5,7 @@ purpose: simple demo that transmits characters to
 the serial port and print them on the screen,
 exit the program by pressing Ctrl-C
 
-compile with the command: gcc demo_tx.c rs232.c -Wall -Wextra -o2 -o test_tx
+compile with the command: gcc demo_tx.c rs232.c -Wall -Wextra -o test_tx
 
 **************************************************/
 
@@ -14,8 +13,9 @@ compile with the command: gcc demo_tx.c rs232.c -Wall -Wextra -o2 -o test_tx
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include "rs232.h"
 
-#if defined(__linux__) || defined(__FreeBSD__)
+#if WINDOWS_BUILD == 0
 #include <unistd.h>
 
 #define sleep(msecs) usleep(msecs*1000)
@@ -24,8 +24,6 @@ compile with the command: gcc demo_tx.c rs232.c -Wall -Wextra -o2 -o test_tx
 
 #define sleep(msecs) Sleep(msecs)
 #endif
-
-#include "rs232.h"
 
 int main(int argc, char *argv[])
 {

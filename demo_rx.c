@@ -1,4 +1,3 @@
-
 /**************************************************
 
 file: demo_rx.c
@@ -6,7 +5,7 @@ purpose: simple demo that receives characters from
 the serial port and print them on the screen,
 exit the program by pressing Ctrl-C
 
-compile with the command: gcc demo_rx.c rs232.c -Wall -Wextra -o2 -o test_rx
+compile with the command: gcc demo_rx.c rs232.c -Wall -Wextra -o test_rx
 
 **************************************************/
 
@@ -16,13 +15,13 @@ compile with the command: gcc demo_rx.c rs232.c -Wall -Wextra -o2 -o test_rx
 #include <stdbool.h>
 #include <ctype.h>
 
-#if defined(__linux__) || defined(__FreeBSD__)
+#include "rs232.h"
+
+#if WINDOWS_BUILD == 0
 #include <unistd.h>
 #else
 #include <windows.h>
 #endif
-
-#include "rs232.h"
 
 int main(int argc, char *argv[])
 {

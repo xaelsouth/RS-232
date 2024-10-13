@@ -39,22 +39,34 @@
 #include <assert.h>
 #include "rs232.h"
 
-#ifndef WITH_RS232_LOCK
-#define WITH_RS232_LOCK  0
+#define RS232_PERROR(...)
+#define RS232_FPRINTF(fd, ...)
+#define RS232_FPRINTF_DEBUG(fd, ...)
+
+#if !defined(RS232_ADD_EXPORTS)
+#undef RS232_PERROR
+#define RS232_PERROR(...)             perror(__VA_ARGS__)
+
+#undef  RS232_FPRINTF
+#define RS232_FPRINTF(fd, ...)        fprintf(fd, __VA_ARGS__)
+
+#if defined(DEBUG)
+#undef  RS232_FPRINTF_DEBUG
+#define RS232_FPRINTF_DEBUG(fd, ...)  fprintf(fd, __VA_ARGS__)
+#endif
 #endif
 
-#if defined(__linux__) || defined(__FreeBSD__)
+#if WINDOWS_BUILD == 0
 
 RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int flags)
 {
 
   int cbits = CS8, cpar = 0, ipar = IGNPAR, bstop = 0;
   int fd, err, status;
-  bool flowctrl = (flags != 0);
 
   if (devname == NULL)
   {
-    fprintf(stderr, "Illegal device.\n");
+    RS232_FPRINTF(stderr, "Illegal device.\n");
     return RS232_INVALID_FD;
   }
 
@@ -153,20 +165,20 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
       break;
 #endif
     default      :
-      fprintf(stderr, "Invalid baudrate %d.\n", baudrate);
+      RS232_FPRINTF(stderr, "Invalid baudrate %d.\n", baudrate);
       return RS232_INVALID_FD;
       break;
   }
 
   if (mode == NULL)
   {
-    fprintf(stderr, "Invalid mode.\n");
+    RS232_FPRINTF(stderr, "Invalid mode.\n");
     return RS232_INVALID_FD;
   }
 
   if (strlen(mode) != 3)
   {
-    fprintf(stderr, "Invalid mode '%s'.\n", mode);
+    RS232_FPRINTF(stderr, "Invalid mode '%s'.\n", mode);
     return RS232_INVALID_FD;
   }
 
@@ -185,7 +197,7 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
       cbits = CS5;
       break;
     default :
-      fprintf(stderr, "Invalid number of data-bits '%c'.\n", mode[0]);
+      RS232_FPRINTF(stderr, "Invalid number of data-bits '%c'.\n", mode[0]);
       return RS232_INVALID_FD;
       break;
   }
@@ -211,7 +223,7 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
       ipar = INPCK;
       break;
     default :
-      fprintf(stderr, "Invalid parity '%c'.\n", mode[1]);
+      RS232_FPRINTF(stderr, "Invalid parity '%c'.\n", mode[1]);
       return RS232_INVALID_FD;
       break;
   }
@@ -225,7 +237,7 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
       bstop = CSTOPB;
       break;
     default :
-      fprintf(stderr, "Invalid number of stop bits '%c'.\n", mode[2]);
+      RS232_FPRINTF(stderr, "Invalid number of stop bits '%c'.\n", mode[2]);
       return RS232_INVALID_FD;
       break;
   }
@@ -238,7 +250,7 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
   fd = open(devname, O_RDWR | O_NOCTTY | O_NDELAY);
   if (fd == RS232_INVALID_FD)
   {
-    perror("Unable to open comport ");
+    RS232_PERROR("Unable to open comport ");
     return RS232_INVALID_FD;
   }
 
@@ -247,7 +259,7 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
   if (flock(fd, LOCK_EX | LOCK_NB) != 0)
   {
     close(fd);
-    perror("Another process has locked the comport.");
+    RS232_PERROR("Another process has locked the comport.");
     return RS232_INVALID_FD;
   }
   #endif
@@ -260,13 +272,13 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
     flock(fd, LOCK_UN);  /* free the port so that others can use it. */
     #endif
     close(fd);
-    perror("Unable to read portsettings ");
+    RS232_PERROR("Unable to read portsettings ");
     return RS232_INVALID_FD;
   }
 
   struct termios new_port_settings = { 0 };
   new_port_settings.c_cflag = cbits | cpar | bstop | CLOCAL | CREAD;
-  if (flowctrl)
+  if ((flags & RS232_FLAGS_HWFLOWCTRL) == RS232_FLAGS_HWFLOWCTRL)
   {
     new_port_settings.c_cflag |= CRTSCTS;
   }
@@ -287,7 +299,7 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
     flock(fd, LOCK_UN);  /* free the port so that others can use it. */
     #endif
     close(fd);
-    perror("Unable to adjust portsettings ");
+    RS232_PERROR("Unable to adjust portsettings ");
     return RS232_INVALID_FD;
   }
 
@@ -301,12 +313,16 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
     flock(fd, LOCK_UN);  /* free the port so that others can use it. */
     #endif
     close(fd);
-    perror("Unable to get portstatus ");
+    RS232_PERROR("Unable to get portstatus ");
     return RS232_INVALID_FD;
   }
 
-  status &= ~TIOCM_DTR;    /* turn off DTR */
-  status |= TIOCM_RTS;     /* turn on RTS */
+  status &= ~TIOCM_DTR;    /* Turn off DTR. */
+
+  if ((flags & RS232_FLAGS_HWFLOWCTRL) == 0)
+  {
+    status |= TIOCM_RTS;     /* Turn on RTS as no HW flow control enabled. */
+  }
 
   err = ioctl(fd, TIOCMSET, &status);
   if (err == -1)
@@ -316,7 +332,7 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
     flock(fd, LOCK_UN);  /* free the port so that others can use it. */
     #endif
     close(fd);
-    perror("Unable to set portstatus ");
+    RS232_PERROR("Unable to set portstatus ");
     return RS232_INVALID_FD;
   }
 
@@ -331,7 +347,7 @@ int RS232_Close(RS232_FD fd)
   err = ioctl(fd, TIOCMGET, &status);
   if (err == -1)
   {
-    perror("Unable to get portstatus");
+    RS232_PERROR("Unable to get portstatus");
     return -1;
   }
 
@@ -341,7 +357,7 @@ int RS232_Close(RS232_FD fd)
   err = ioctl(fd, TIOCMSET, &status);
   if (err == -1)
   {
-    perror("Unable to set portstatus");
+    RS232_PERROR("Unable to set portstatus");
     return -1;
   }
 
@@ -371,11 +387,11 @@ ssize_t RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_m
 
   if (fdcount == -1)
   {
-    fprintf(stderr, "Error in select: %d.\n", errno);
+    RS232_FPRINTF(stderr, "Error in select: %d.\n", errno);
   }
   else if (fdcount == 0)
   {
-    //fprintf(stderr, "No data received within %d milliseconds.\n", timeout_msec);
+    RS232_FPRINTF_DEBUG(stderr, "No data received within %d milliseconds.\n", timeout_msec);
     read_bytes = 0;
   }
   else
@@ -385,7 +401,7 @@ ssize_t RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_m
       read_bytes = read(fd, buf, size);
       if (read_bytes < 0)
       {
-        //fprintf(stderr, "Can't read data.\n");
+        RS232_FPRINTF_DEBUG(stderr, "Can't read data.\n");
       }
     }
   }
@@ -412,11 +428,11 @@ ssize_t RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int ti
 
   if (fdcount == -1)
   {
-    fprintf(stderr, "Error in select: %d.\n", errno);
+    RS232_FPRINTF(stderr, "Error in select: %d.\n", errno);
   }
   else if (fdcount == 0)
   {
-    fprintf(stderr, "No data sent within %d milliseconds.\n", timeout_msec);
+    RS232_FPRINTF(stderr, "No data sent within %d milliseconds.\n", timeout_msec);
   }
   else
   {
@@ -425,7 +441,7 @@ ssize_t RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int ti
       written_bytes = write(fd, buf, size);
       if (written_bytes < 0)
       {
-        //fprintf(stderr, "Can't write data.\n");
+        RS232_FPRINTF_DEBUG(stderr, "Can't write data.\n");
       }
     }
   }
@@ -552,7 +568,7 @@ int RS232_enableBREAK(RS232_FD fd)
 
   if (ioctl(fd, TIOCSBRK, NULL) == -1)  /* Turn break on, that is, start sending zero bits. */
   {
-    fprintf(stderr, "Unable to turn break on.\n");
+    RS232_FPRINTF(stderr, "Unable to turn break on.\n");
     return -1;
   }
 
@@ -564,7 +580,7 @@ int RS232_disableBREAK(RS232_FD fd)
 
   if (ioctl(fd, TIOCCBRK, NULL) == -1)  /* Turn break off, that is, stop sending zero bits. */
   {
-    fprintf(stderr, "Unable to turn break off.\n");
+    RS232_FPRINTF(stderr, "Unable to turn break off.\n");
     return -1;
   }
 
@@ -589,38 +605,16 @@ int RS232_flushRXTX(RS232_FD fd)
   return tcflush(fd, TCIOFLUSH);
 }
 
-
-int RS232_enableHwFlowControl(RS232_FD fd)
-{
-
-  /// TODO: to implement
-
-  (void)fd;
-
-  return -1;
-}
-
-int RS232_disableHwFlowControl(RS232_FD fd)
-{
-
-  /// TODO: to implement
-
-  (void)fd;
-
-  return -1;
-}
-
 #else  /* Windows */
 
-ADDAPI RS232_FD ADDCALL RS232_Open(const char *devname, int baudrate, const char *mode, int flags)
+RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate, const char *mode, int flags)
 {
 
   char mode_str[128];
-  bool flowctrl = (flags != 0);
 
   if (devname == NULL)
   {
-    fprintf(stderr, "Illegal device.\n");
+    RS232_FPRINTF(stderr, "Illegal device.\n");
     return RS232_INVALID_FD;
   }
 
@@ -684,14 +678,14 @@ ADDAPI RS232_FD ADDCALL RS232_Open(const char *devname, int baudrate, const char
       strcpy(mode_str, "baud=3000000");
       break;
     default      :
-      fprintf(stderr, "Invalid baudrate.\n");
+      RS232_FPRINTF(stderr, "Invalid baudrate.\n");
       return RS232_INVALID_FD;
       break;
   }
 
   if (strlen(mode) != 3)
   {
-    fprintf(stderr, "invalid mode \"%s\"\n", mode);
+    RS232_FPRINTF(stderr, "invalid mode \"%s\"\n", mode);
     return RS232_INVALID_FD;
   }
 
@@ -710,7 +704,7 @@ ADDAPI RS232_FD ADDCALL RS232_Open(const char *devname, int baudrate, const char
       strcat(mode_str, " data=5");
       break;
     default :
-      fprintf(stderr, "Invalid number of data-bits '%c'.\n", mode[0]);
+      RS232_FPRINTF(stderr, "Invalid number of data-bits '%c'.\n", mode[0]);
       return RS232_INVALID_FD;
       break;
   }
@@ -733,7 +727,7 @@ ADDAPI RS232_FD ADDCALL RS232_Open(const char *devname, int baudrate, const char
       strcat(mode_str, " parity=o");
       break;
     default :
-      fprintf(stderr, "Invalid parity '%c'.\n", mode[1]);
+      RS232_FPRINTF(stderr, "Invalid parity '%c'.\n", mode[1]);
       return RS232_INVALID_FD;
       break;
   }
@@ -747,18 +741,18 @@ ADDAPI RS232_FD ADDCALL RS232_Open(const char *devname, int baudrate, const char
       strcat(mode_str, " stop=2");
       break;
     default :
-      fprintf(stderr, "Invalid number of stop bits '%c'.\n", mode[2]);
+      RS232_FPRINTF(stderr, "Invalid number of stop bits '%c'.\n", mode[2]);
       return RS232_INVALID_FD;
       break;
   }
 
-  if (flowctrl)
+  if ((flags & RS232_FLAGS_HWFLOWCTRL) == RS232_FLAGS_HWFLOWCTRL)
   {
-    strncat(mode_str, " xon=off to=off odsr=off dtr=off rts=on", sizeof(mode_str) - strlen(mode_str));
+    strncat(mode_str, " xon=off to=off odsr=off dtr=off rts=off", sizeof(mode_str) - strlen(mode_str));
   }
   else
   {
-    strncat(mode_str, " xon=off to=off odsr=off dtr=off rts=off", sizeof(mode_str) - strlen(mode_str));
+    strncat(mode_str, " xon=off to=off odsr=off dtr=off rts=on", sizeof(mode_str) - strlen(mode_str));
   }
 
   /*
@@ -782,7 +776,7 @@ ADDAPI RS232_FD ADDCALL RS232_Open(const char *devname, int baudrate, const char
 
   if (fd == RS232_INVALID_FD)
   {
-    fprintf(stderr, "Unable to open comport %s.\n", devname);
+    RS232_FPRINTF(stderr, "Unable to open comport %s.\n", devname);
     return RS232_INVALID_FD;
   }
 
@@ -791,17 +785,14 @@ ADDAPI RS232_FD ADDCALL RS232_Open(const char *devname, int baudrate, const char
 
   if (!BuildCommDCBA(mode_str, &port_settings))
   {
-    fprintf(stderr, "Unable to set comport dcb settings.\n");
+    RS232_FPRINTF(stderr, "Unable to set comport dcb settings.\n");
     CloseHandle(fd);
     return RS232_INVALID_FD;
   }
 
-  if (!port_settings.fBinary)
-  {
-    port_settings.fBinary = 1;
-  }
+  port_settings.fBinary = 1;
 
-  if (flowctrl)
+  if ((flags & RS232_FLAGS_HWFLOWCTRL) == RS232_FLAGS_HWFLOWCTRL)
   {
     port_settings.fOutxCtsFlow = TRUE;
     port_settings.fRtsControl = RTS_CONTROL_HANDSHAKE;
@@ -809,7 +800,7 @@ ADDAPI RS232_FD ADDCALL RS232_Open(const char *devname, int baudrate, const char
 
   if (!SetCommState(fd, &port_settings))
   {
-    fprintf(stderr, "Unable to set comport cfg settings.\n");
+    RS232_FPRINTF(stderr, "Unable to set comport cfg settings.\n");
     CloseHandle(fd);
     return RS232_INVALID_FD;
   }
@@ -818,20 +809,20 @@ ADDAPI RS232_FD ADDCALL RS232_Open(const char *devname, int baudrate, const char
 
   Cptimeouts.ReadIntervalTimeout = MAXDWORD;
   Cptimeouts.ReadTotalTimeoutMultiplier = MAXDWORD;
-  Cptimeouts.ReadTotalTimeoutConstant = 2000;
+  Cptimeouts.ReadTotalTimeoutConstant = 0;
   Cptimeouts.WriteTotalTimeoutMultiplier = 0;
-  Cptimeouts.WriteTotalTimeoutConstant = 2000;
+  Cptimeouts.WriteTotalTimeoutConstant = 0;
 
   if (!SetCommTimeouts(fd, &Cptimeouts))
   {
-    fprintf(stderr, "Unable to set comport timeouts.\n");
+    RS232_FPRINTF(stderr, "Unable to set comport timeouts.\n");
     CloseHandle(fd);
     return RS232_INVALID_FD;
   }
 
   if (!SetCommMask(fd, EV_ERR))
   {
-    fprintf(stderr, "Unable to clear event mask.\n");
+    RS232_FPRINTF(stderr, "Unable to clear event mask.\n");
     CloseHandle(fd);
     return RS232_INVALID_FD;
   }
@@ -839,7 +830,7 @@ ADDAPI RS232_FD ADDCALL RS232_Open(const char *devname, int baudrate, const char
   return fd;
 }
 
-ADDAPI ssize_t ADDCALL RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_msec)
+RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_msec)
 {
 
   ssize_t read_bytes;
@@ -881,7 +872,7 @@ ADDAPI ssize_t ADDCALL RS232_Read(RS232_FD fd, void *buf, size_t size, int flags
   return read_bytes;
 }
 
-ADDAPI ssize_t ADDCALL RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int timeout_msec)
+RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int timeout_msec)
 {
 
   ssize_t written_bytes;
@@ -922,7 +913,7 @@ ADDAPI ssize_t ADDCALL RS232_Write(RS232_FD fd, const void *buf, size_t size, in
   return written_bytes;
 }
 
-ADDAPI int ADDCALL RS232_Close(RS232_FD fd)
+RS232_ADDAPI int RS232_ADDCALL RS232_Close(RS232_FD fd)
 {
 
   return CloseHandle(fd) ? 0 : -1;
@@ -933,7 +924,7 @@ ADDAPI int ADDCALL RS232_Close(RS232_FD fd)
  * https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getcommmodemstatus
  */
 
-ADDAPI int ADDCALL RS232_IsDCDEnabled(RS232_FD fd)
+RS232_ADDAPI int RS232_ADDCALL RS232_IsDCDEnabled(RS232_FD fd)
 {
 
   DWORD status;
@@ -944,7 +935,7 @@ ADDAPI int ADDCALL RS232_IsDCDEnabled(RS232_FD fd)
 }
 
 
-ADDAPI int ADDCALL RS232_IsRINGEnabled(RS232_FD fd)
+RS232_ADDAPI int RS232_ADDCALL RS232_IsRINGEnabled(RS232_FD fd)
 {
 
   DWORD status;
@@ -954,7 +945,7 @@ ADDAPI int ADDCALL RS232_IsRINGEnabled(RS232_FD fd)
   return (status & MS_RING_ON) ? 1 : 0;
 }
 
-ADDAPI int ADDCALL RS232_IsCTSEnabled(RS232_FD fd)
+RS232_ADDAPI int RS232_ADDCALL RS232_IsCTSEnabled(RS232_FD fd)
 {
 
   DWORD status;
@@ -964,7 +955,7 @@ ADDAPI int ADDCALL RS232_IsCTSEnabled(RS232_FD fd)
   return (status & MS_CTS_ON) ? 1 : 0;
 }
 
-ADDAPI int ADDCALL RS232_IsDSREnabled(RS232_FD fd)
+RS232_ADDAPI int RS232_ADDCALL RS232_IsDSREnabled(RS232_FD fd)
 {
 
   DWORD status;
@@ -974,26 +965,26 @@ ADDAPI int ADDCALL RS232_IsDSREnabled(RS232_FD fd)
   return (status & MS_DSR_ON) ? 1 : 0;
 }
 
-ADDAPI int ADDCALL RS232_enableDTR(RS232_FD fd)
+RS232_ADDAPI int RS232_ADDCALL RS232_enableDTR(RS232_FD fd)
 {
 
   return EscapeCommFunction(fd, SETDTR) ? 0 : -1;
 }
 
-ADDAPI int ADDCALL RS232_disableDTR(RS232_FD fd)
+RS232_ADDAPI int RS232_ADDCALL RS232_disableDTR(RS232_FD fd)
 {
 
   return EscapeCommFunction(fd, CLRDTR) ? 0 : -1;
 }
 
-ADDAPI int ADDCALL RS232_enableRTS(RS232_FD fd)
+RS232_ADDAPI int RS232_ADDCALL RS232_enableRTS(RS232_FD fd)
 {
 
   return EscapeCommFunction(fd, SETRTS) ? 0 : -1;
 }
 
 
-ADDAPI int ADDCALL RS232_disableRTS(RS232_FD fd)
+RS232_ADDAPI int RS232_ADDCALL RS232_disableRTS(RS232_FD fd)
 {
 
   return EscapeCommFunction(fd, CLRRTS) ? 0 : -1;
@@ -1003,12 +994,12 @@ ADDAPI int ADDCALL RS232_disableRTS(RS232_FD fd)
  * https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-setcommbreak
  */
 
-ADDAPI int ADDCALL RS232_enableBREAK(RS232_FD fd)
+RS232_ADDAPI int RS232_ADDCALL RS232_enableBREAK(RS232_FD fd)
 {
 
   if (!SetCommBreak(fd))  /* Turn break on, that is, start sending zero bits. */
   {
-    perror("unable to turn break on");
+    RS232_FPRINTF(stderr, "Unable to turn break on.\n");
     return -1;
   }
 
@@ -1019,12 +1010,12 @@ ADDAPI int ADDCALL RS232_enableBREAK(RS232_FD fd)
  * https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-clearcommbreak
  */
 
-ADDAPI int ADDCALL RS232_disableBREAK(RS232_FD fd)
+RS232_ADDAPI int RS232_ADDCALL RS232_disableBREAK(RS232_FD fd)
 {
 
   if (!ClearCommBreak(fd))  /* Turn break off, that is, stop sending zero bits. */
   {
-    perror("unable to turn break off");
+    RS232_FPRINTF(stderr, "Unable to turn break off.\n");
     return -1;
   }
 
@@ -1036,72 +1027,26 @@ ADDAPI int ADDCALL RS232_disableBREAK(RS232_FD fd)
  * https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-purgecomm
  */
 
-ADDAPI int ADDCALL RS232_flushRX(RS232_FD fd)
+RS232_ADDAPI int RS232_ADDCALL RS232_flushRX(RS232_FD fd)
 {
 
   return PurgeComm(fd, PURGE_RXCLEAR | PURGE_RXABORT) ? 0 : -1;
 }
 
 
-ADDAPI int ADDCALL RS232_flushTX(RS232_FD fd)
+RS232_ADDAPI int RS232_ADDCALL RS232_flushTX(RS232_FD fd)
 {
 
   return PurgeComm(fd, PURGE_TXCLEAR | PURGE_TXABORT) ? 0 : -1;
 }
 
 
-ADDAPI int ADDCALL RS232_flushRXTX(RS232_FD fd)
+RS232_ADDAPI int RS232_ADDCALL RS232_flushRXTX(RS232_FD fd)
 {
 
   return (PurgeComm(fd, PURGE_RXCLEAR | PURGE_RXABORT) &&
           PurgeComm(fd, PURGE_TXCLEAR | PURGE_TXABORT))
          ? 0 : -1;
-}
-
-ADDAPI int ADDCALL RS232_enableHwFlowControl(RS232_FD fd)
-{
-
-  DCB port_settings;
-
-  if (!GetCommState(fd, &port_settings))
-  {
-    fprintf(stderr, "Unable to get comport cfg settings.\n");
-    return -1;
-  }
-
-  port_settings.fOutxCtsFlow = 1;
-  port_settings.fRtsControl = RTS_CONTROL_HANDSHAKE;
-
-  if (!SetCommState(fd, &port_settings))
-  {
-    fprintf(stderr, "Unable to set comport cfg settings.\n");
-    return -1;
-  }
-
-  return 0;
-}
-
-ADDAPI int ADDCALL RS232_disableHwFlowControl(RS232_FD fd)
-{
-
-  DCB port_settings;
-
-  if (!GetCommState(fd, &port_settings))
-  {
-    fprintf(stderr, "Unable to get comport cfg settings.\n");
-    return -1;
-  }
-
-  port_settings.fOutxCtsFlow = 0;
-  port_settings.fRtsControl = RTS_CONTROL_DISABLE;
-
-  if (!SetCommState(fd, &port_settings))
-  {
-    fprintf(stderr, "Unable to set comport cfg settings.\n");
-    return -1;
-  }
-
-  return 0;
 }
 
 #endif

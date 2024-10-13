@@ -26,15 +26,23 @@
 ***************************************************************************
 */
 
-/* For more info and how to use this library, visit: http://www.teuniz.net/RS-232/ */
-
+/* 
+ * For more info and how to use this library, visit: https://github.com/xaelsouth/RS-232
+ *                                                   https://www.teuniz.net/RS-232
+ */
 
 #ifndef rs232_INCLUDED
 #define rs232_INCLUDED
 
-#include <stddef.h>
+#if !defined(WINDOWS_BUILD)
+#if defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
+#define WINDOWS_BUILD 1
+#else
+#define WINDOWS_BUILD 0
+#endif
+#endif
 
-#if defined(__linux__) || defined(__FreeBSD__)
+#if WINDOWS_BUILD == 0
 #include <termios.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -44,8 +52,12 @@
 #include <sys/file.h>
 #include <errno.h>
 
-#define ADDAPI
-#define ADDCALL
+#ifndef WITH_RS232_LOCK
+#define WITH_RS232_LOCK  0
+#endif
+
+#define RS232_ADDAPI
+#define RS232_ADDCALL
 
 typedef int RS232_FD;
 
@@ -54,15 +66,14 @@ typedef int RS232_FD;
 #else
 #include <windows.h>
 
-/* You should define ADD_EXPORTS *only* when building the DLL. */
-#ifdef ADD_EXPORTS
-  #define ADDAPI __declspec(dllexport)
+/* You must define RS232_ADD_EXPORTS _only_ when building the DLL. */
+#ifdef RS232_ADD_EXPORTS
+  #define RS232_ADDAPI __declspec(dllexport)
 #else
-  #define ADDAPI __declspec(dllimport)
+  #define RS232_ADDAPI __declspec(dllimport)
 #endif
 
-/* Define calling convention in one place, for convenience. */
-#define ADDCALL __cdecl
+#define RS232_ADDCALL __cdecl
 
 typedef HANDLE RS232_FD;
 
@@ -79,29 +90,190 @@ typedef _W64 int ssize_t;
 
 #endif
 
+#include <stddef.h>
+
+/** Hardware flow control is enabled using the RTS/CTS lines. */
+#define RS232_FLAGS_HWFLOWCTRL  (1 << 0)
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-ADDAPI RS232_FD ADDCALL RS232_Open(const char*, int, const char*, int);
-ADDAPI int ADDCALL RS232_Close(RS232_FD);
-ADDAPI ssize_t ADDCALL RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_msec);
-ADDAPI ssize_t ADDCALL RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int timeout_msec);
-ADDAPI int ADDCALL RS232_IsDCDEnabled(RS232_FD);
-ADDAPI int ADDCALL RS232_IsRINGEnabled(RS232_FD);
-ADDAPI int ADDCALL RS232_IsCTSEnabled(RS232_FD);
-ADDAPI int ADDCALL RS232_IsDSREnabled(RS232_FD);
-ADDAPI int ADDCALL RS232_enableDTR(RS232_FD);
-ADDAPI int ADDCALL RS232_disableDTR(RS232_FD);
-ADDAPI int ADDCALL RS232_enableRTS(RS232_FD);
-ADDAPI int ADDCALL RS232_disableRTS(RS232_FD);
-ADDAPI int ADDCALL RS232_enableBREAK(RS232_FD);
-ADDAPI int ADDCALL RS232_disableBREAK(RS232_FD);
-ADDAPI int ADDCALL RS232_flushRX(RS232_FD);
-ADDAPI int ADDCALL RS232_flushTX(RS232_FD);
-ADDAPI int ADDCALL RS232_flushRXTX(RS232_FD);
-ADDAPI int ADDCALL RS232_enableHwFlowControl(RS232_FD);
-ADDAPI int ADDCALL RS232_disableHwFlowControl(RS232_FD);
+/**
+ * @brief Opens the serial interface.
+ *
+ * @param[in] devname Serial interface device like /dev/ttyUSB0 on Linux or COM1 on Windows.
+ *            Use \\.\COM10 on Windows for all interfaces number abobe COM9.
+ * 
+ * @param[in] baudrate expressed in baud per second i.e 115200
+ * 
+ * @param[in] mode is a string in the form of "8N1", "7O2", "8E1", etc.
+ * 
+ * @param[in] flags can be combined using the bit-wise OR operator.
+ *            At the moment only RS232_FLAGS_HWFLOWCTRL flag is supported.
+ * 
+ * @return File descriptor or RS232_INVALID_FD if something went wrong while opening interface.
+ */
+RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate, const char *mode, int flags);
+
+/**
+ * @brief Closes the serial interface.
+ * 
+ * @param[in] fd file descriptor.
+ * 
+ * @return 
+ */
+RS232_ADDAPI int RS232_ADDCALL RS232_Close(RS232_FD);
+
+/**
+ * @brief Reads from serial interface up to size bytes and stores them in buf.
+ * 
+ * @param[in] fd file descriptor.
+ * 
+ * @param[out] buf is a buffer where data read from serial interface will be stored.
+ * 
+ * @param[in] size is the buffer size.
+ * 
+ * @param[in] timeout_msec is the timeout in milliseconds. 0: non-blocking read, INT_MAX: blocking read.
+ * 
+ * @return Amount of bytes received (and stored): >= 0 if could read successfully or -1 if an error occured.
+ */
+RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_msec);
+
+/**
+ * @brief Writes to serial interface up to size bytes stored in buf.
+ * 
+ * @param[in] fd file descriptor.
+ * 
+ * @param[in] buf is a buffer with data to send via the serial interface.
+ * 
+ * @param[in] size is the amount of data to send.
+ * 
+ * @param[in] timeout_msec is the timeout in milliseconds. 0: non-blocking write, INT_MAX: blocking write.
+ * 
+ * @return Amount of bytes sent: >=0 if could write successfully or -1 if an error occured.
+ */
+RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int timeout_msec);
+
+/**.
+ * @brief Checks the status of the DCD-pin.
+ *
+ * @param[in] fd file descriptor.
+ *
+ * @return 1 if the the CTS line is high (active state), 0 if is low (inactive state), -1 on error.
+ */
+RS232_ADDAPI int RS232_ADDCALL RS232_IsDCDEnabled(RS232_FD fd);
+
+/**.
+ * @brief Checks the status of the RING-pin.
+ *
+ * @param[in] fd file descriptor.
+ *
+ * @return 1 if the the CTS line is high (active state), 0 if is low (inactive state), -1 on error.
+ */
+RS232_ADDAPI int RS232_ADDCALL RS232_IsRINGEnabled(RS232_FD fd);
+
+/**.
+ * @brief Checks the status of the CTS-pin.
+ *
+ * @param[in] fd file descriptor.
+ *
+ * @return 1 if the the CTS line is high (active state), 0 if is low (inactive state), -1 on error.
+ */
+RS232_ADDAPI int RS232_ADDCALL RS232_IsCTSEnabled(RS232_FD fd);
+
+/**.
+ * @brief Checks the status of the DSR-pin.
+ *
+ * @param[in] fd file descriptor.
+ *
+ * @return 1 if the the CTS line is high (active state), 0 if is low (inactive state), -1 on error.
+ */
+RS232_ADDAPI int RS232_ADDCALL RS232_IsDSREnabled(RS232_FD fd);
+
+/**.
+ * @brief Sets the DTR line high (active state).
+ *
+ * @param[in] fd file descriptor.
+ *
+ * @return 0 on success or -1 otherwise.
+ */
+RS232_ADDAPI int RS232_ADDCALL RS232_enableDTR(RS232_FD fd);
+
+/**.
+ * @brief Sets the DTR line low (inactive state).
+ *
+ * @param[in] fd file descriptor.
+ *
+ * @return 0 on success or -1 otherwise.
+ */
+RS232_ADDAPI int RS232_ADDCALL RS232_disableDTR(RS232_FD fd);
+
+/**.
+ * @brief Sets the RTS line high (active state).
+ *
+ * @param[in] fd file descriptor.
+ *
+ * @return 0 on success or -1 otherwise.
+ */
+RS232_ADDAPI int RS232_ADDCALL RS232_enableRTS(RS232_FD fd);
+
+/**.
+ * @brief Sets the RTS line low (inactive state).
+ *
+ * @param[in] fd file descriptor.
+ *
+ * @return 0 on success or -1 otherwise.
+ */
+RS232_ADDAPI int RS232_ADDCALL RS232_disableRTS(RS232_FD fd);
+
+/**.
+ * @brief Enable sending break characters (0x00).
+ * @note  On Linux sends only one break character.
+ *
+ * @param[in] fd file descriptor.
+ *
+ * @return 0 on success or -1 otherwise.
+ */
+RS232_ADDAPI int RS232_ADDCALL RS232_enableBREAK(RS232_FD fd);
+
+/**.
+ * @brief Disables sending of break characters.
+ * @note  On Linux RS232_disableBREAK should "complete" every RS232_enableBREAK.
+ *
+ * @param[in] fd file descriptor.
+ *
+ * @return 0 on success or -1 otherwise.
+ */
+RS232_ADDAPI int RS232_ADDCALL RS232_disableBREAK(RS232_FD fd);
+
+/**.
+ * @brief Flushes data received but not read.
+ *
+ * @param[in] fd file descriptor.
+ *
+ * @return 0 on success or -1 otherwise.
+ */
+RS232_ADDAPI int RS232_ADDCALL RS232_flushRX(RS232_FD fd);
+
+/**.
+ * @brief Flushes data written but not transmitted.
+ *
+ * @param[in] fd file descriptor.
+ *
+ * @return 0 on success or -1 otherwise.
+ */
+RS232_ADDAPI int RS232_ADDCALL RS232_flushTX(RS232_FD fd);
+
+/**.
+ * @brief Flushes both data received but not read, and data written but not transmitted.
+ *
+ * @param[in] fd file descriptor.
+ *
+ * @return 0 on success or -1 otherwise.
+ */
+RS232_ADDAPI int RS232_ADDCALL RS232_flushRXTX(RS232_FD fd);
 
 #ifdef __cplusplus
 } /* extern "C" */
