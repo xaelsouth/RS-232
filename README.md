@@ -1,14 +1,17 @@
-# RS-232 for Linux, FreeBSD and Windows
+# RS232 for Linux, FreeBSD and Windows
 
-Website: https://github.com/xaelsouth/RS-232
+RS232 library to abstract serial interfaces and make it easier to work them more comfortable
+on different platforms.
 
 This project is heavilly based on work of Teunis van Beelen, see https://www.teuniz.net/RS-232
+
+Current project website is: https://github.com/xaelsouth/RS-232
 
 What is different to the original version:
   * Serial interfaces can be opened by file name like /dev/ttyUSB0 or COM1.
   * Read and write have been reworked to support timeouts.
   * Implemented support for flags for following commands: RS232_Open, RS232_Read, RS232_Write.
-  * RS232 can be build as shared object (library).
+  * RS232 can be build as shared object.
 
 To include this library into your project:
   * Put the two files rs232.h and rs232.c in your project source directory.
@@ -31,5 +34,5 @@ Run the demo by typing:
   * ./test_tx
   * ./test_rs232
 
-test_rs232 implements multiple unit tests. Use null-modem cable to be able trun them.
+test_rs232 implements multiple unit tests. Use null-modem cable to be able to run them.
 
