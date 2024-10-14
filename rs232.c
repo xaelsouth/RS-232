@@ -609,39 +609,50 @@ int RS232_flushRXTX(RS232_FD fd)
 RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate, const char *mode, int flags)
 {
 
-  DCB port_settings = {
-    .DCBlength = sizeof(port_settings),
-    .fBinary = TRUE,
-    .fParity = FALSE,
-    .fOutxCtsFlow = FALSE,
-    .fOutxDsrFlow = FALSE,
-    .fDtrControl = DTR_CONTROL_DISABLE,
-    .fDsrSensitivity = FALSE,
-    .fTXContinueOnXoff = 0,
-    .fOutX = FALSE,
-    .fInX = FALSE,
-    .fErrorChar = FALSE,
-    .fNull = FALSE,
-    .fRtsControl = RTS_CONTROL_ENABLE,
-    .fAbortOnError = FALSE,
-    .fDummy2 = 0,
-    .wReserved = 0,
-    .XonLim = 0,
-    .XoffLim = 0,
-    .ByteSize = 8,
-    .Parity = NOPARITY,
-    .StopBits = ONESTOPBIT,
-    .XonChar = 0,
-    .XoffChar = 0,
-    .ErrorChar = 0,
-    .EofChar = 0,
-    .EvtChar = 0,
-    .wReserved1 = 0,
-  };
-
   if (devname == NULL)
   {
     RS232_FPRINTF(stderr, "Illegal device.\n");
+    return RS232_INVALID_FD;
+  }
+
+  if (strlen(mode) != 3)
+  {
+    RS232_FPRINTF(stderr, "invalid mode \"%s\"\n", mode);
+    return RS232_INVALID_FD;
+  }
+
+
+  /*
+   * https://msdn.microsoft.com/en-us/library/windows/desktop/aa363145%28v=vs.85%29.aspx
+   * https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-buildcommdcbandtimeoutsa
+   *
+   * https://technet.microsoft.com/en-us/library/cc732236.aspx
+   * https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-R2-and-2012/cc732236(v=ws.11)
+   *
+   * https://docs.microsoft.com/en-us/windows/desktop/api/winbase/ns-winbase-_dcb
+   * https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-buildcommdcba
+   */
+
+  RS232_FD fd = CreateFileA(devname,
+                            GENERIC_READ | GENERIC_WRITE,
+                            0,                          /* no share  */
+                            NULL,                       /* no security */
+                            OPEN_EXISTING,
+                            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
+                            NULL);                      /* no templates */
+
+  if (fd == RS232_INVALID_FD)
+  {
+    RS232_FPRINTF(stderr, "Unable to open comport %s.\n", devname);
+    return RS232_INVALID_FD;
+  }
+
+  DCB port_settings = { 0 };
+
+  if (!GetCommState(fd, &port_settings))
+  {
+    RS232_FPRINTF(stderr, "Unable to get comport settings.\n");
+    CloseHandle(fd);
     return RS232_INVALID_FD;
   }
 
@@ -688,14 +699,9 @@ RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate
       break;
     default      :
       RS232_FPRINTF(stderr, "Invalid baudrate.\n");
+      CloseHandle(fd);
       return RS232_INVALID_FD;
       break;
-  }
-
-  if (strlen(mode) != 3)
-  {
-    RS232_FPRINTF(stderr, "invalid mode \"%s\"\n", mode);
-    return RS232_INVALID_FD;
   }
 
   switch (mode[0])
@@ -714,6 +720,7 @@ RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate
       break;
     default :
       RS232_FPRINTF(stderr, "Invalid number of data-bits '%c'.\n", mode[0]);
+      CloseHandle(fd);
       return RS232_INVALID_FD;
       break;
   }
@@ -737,6 +744,7 @@ RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate
       break;
     default :
       RS232_FPRINTF(stderr, "Invalid parity '%c'.\n", mode[1]);
+      CloseHandle(fd);
       return RS232_INVALID_FD;
       break;
   }
@@ -751,6 +759,7 @@ RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate
       break;
     default :
       RS232_FPRINTF(stderr, "Invalid number of stop bits '%c'.\n", mode[2]);
+      CloseHandle(fd);
       return RS232_INVALID_FD;
       break;
   }
@@ -761,35 +770,17 @@ RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate
     port_settings.fRtsControl = RTS_CONTROL_HANDSHAKE;
   }
 
-  /*
-   * https://msdn.microsoft.com/en-us/library/windows/desktop/aa363145%28v=vs.85%29.aspx
-   * https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-buildcommdcbandtimeoutsa
-   *
-   * https://technet.microsoft.com/en-us/library/cc732236.aspx
-   * https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2012-R2-and-2012/cc732236(v=ws.11)
-   *
-   * https://docs.microsoft.com/en-us/windows/desktop/api/winbase/ns-winbase-_dcb
-   * https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-buildcommdcba
-   */
-
-  RS232_FD fd = CreateFileA(devname,
-                            GENERIC_READ | GENERIC_WRITE,
-                            0,                          /* no share  */
-                            NULL,                       /* no security */
-                            OPEN_EXISTING,
-                            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
-                            NULL);                      /* no templates */
-
-  if (fd == RS232_INVALID_FD)
+  if (!SetCommState(fd, &port_settings))
   {
-    RS232_FPRINTF(stderr, "Unable to open comport %s.\n", devname);
+    RS232_FPRINTF(stderr, "Unable to set comport settings.\n");
+    CloseHandle(fd);
     return RS232_INVALID_FD;
   }
 
   COMMTIMEOUTS Cptimeouts;
 
   Cptimeouts.ReadIntervalTimeout = MAXDWORD;
-  Cptimeouts.ReadTotalTimeoutMultiplier = MAXDWORD;
+  Cptimeouts.ReadTotalTimeoutMultiplier = 0;
   Cptimeouts.ReadTotalTimeoutConstant = 0;
   Cptimeouts.WriteTotalTimeoutMultiplier = 0;
   Cptimeouts.WriteTotalTimeoutConstant = 0;
@@ -820,24 +811,20 @@ static ssize_t _RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int t
   OVERLAPPED ov = { 0 };
   (void)flags;
 
-  if (GetCommTimeouts(fd, &Cptimeouts))
-  {
-    if (Cptimeouts.ReadTotalTimeoutConstant != (unsigned)timeout_msec)
-    {
-      Cptimeouts.ReadIntervalTimeout = MAXDWORD;
-      Cptimeouts.ReadTotalTimeoutMultiplier = MAXDWORD;
-      Cptimeouts.ReadTotalTimeoutConstant = timeout_msec;
-      SetCommTimeouts(fd, &Cptimeouts);
-    }
-  }
+  if (!GetCommTimeouts(fd, &Cptimeouts)) return (ssize_t)-1;
+
+  Cptimeouts.ReadIntervalTimeout = MAXDWORD;
+  Cptimeouts.ReadTotalTimeoutMultiplier = 0;
+  Cptimeouts.ReadTotalTimeoutConstant = timeout_msec;
+  if (!SetCommTimeouts(fd, &Cptimeouts)) return (ssize_t)-1;
 
   ov.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-  if (!ov.hEvent) return -1;
+  if (!ov.hEvent) return (ssize_t)-1;
 
   if (ReadFile(fd, buf, (DWORD)size, &dwRead, &ov))
   {
     /* ReadFile completed immediately. */
-    read_bytes = dwRead;
+    read_bytes = (ssize_t)dwRead;
   }
   else
   {
@@ -845,7 +832,7 @@ static ssize_t _RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int t
     if (lastError == ERROR_IO_PENDING || lastError == ERROR_SUCCESS)
       read_bytes = (GetOverlappedResult(fd, &ov, &dwRead, TRUE)) ? (ssize_t)dwRead : (ssize_t)-1;
     else
-      read_bytes = -1;
+      read_bytes = (ssize_t)-1;
   }
 
   CloseHandle(ov.hEvent);
@@ -862,18 +849,14 @@ static ssize_t _RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags
   OVERLAPPED ov = { 0 };
   (void)flags;
 
-  if (GetCommTimeouts(fd, &Cptimeouts))
-  {
-    if (Cptimeouts.WriteTotalTimeoutConstant != (unsigned)timeout_msec)
-    {
-      Cptimeouts.WriteTotalTimeoutMultiplier = 0;
-      Cptimeouts.WriteTotalTimeoutConstant = timeout_msec;
-      SetCommTimeouts(fd, &Cptimeouts);
-    }
-  }
+  if (!GetCommTimeouts(fd, &Cptimeouts)) return (ssize_t)-1;
+
+  Cptimeouts.WriteTotalTimeoutMultiplier = 0;
+  Cptimeouts.WriteTotalTimeoutConstant = timeout_msec;
+  if (!SetCommTimeouts(fd, &Cptimeouts)) return (ssize_t)-1;
 
   ov.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-  if (!ov.hEvent) return -1;
+  if (!ov.hEvent) return (ssize_t)-1;
 
   if (WriteFile(fd, buf, (DWORD)size, &dwWritten, &ov))
   {
@@ -886,7 +869,7 @@ static ssize_t _RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags
     if (lastError == ERROR_IO_PENDING || lastError == ERROR_SUCCESS)
       written_bytes = GetOverlappedResult(fd, &ov, &dwWritten, TRUE) ? (ssize_t)dwWritten : (ssize_t)-1;
     else
-      written_bytes = -1;
+      written_bytes = (ssize_t)-1;
   }
 
   CloseHandle(ov.hEvent);
@@ -1032,22 +1015,24 @@ RS232_ADDAPI int RS232_ADDCALL RS232_flushRXTX(RS232_FD fd)
 
 #endif
 
-RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_msec)
+RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Read(RS232_FD fd, void *_buf, size_t size, int flags, int timeout_msec)
 {
 
   ssize_t total = 0;
-  uint8_t *dst_buf = buf;
+  uint8_t *buf = _buf;
   struct timespec start, end, diff;
 
   while (size > 0)
   {
+    RS232_FPRINTF_DEBUG(stderr, "%s:%d: %p, %d\n", __FUNCTION__, __LINE__, buf, (int)size);
+
     clock_gettime(CLOCK_MONOTONIC, &start);
-    ssize_t read_bytes = _RS232_Read(fd, dst_buf, size, flags, timeout_msec);
+    ssize_t read_bytes = _RS232_Read(fd, buf, size, flags, timeout_msec);
     clock_gettime(CLOCK_MONOTONIC, &end);
 
     if (read_bytes < 0) break; /* Break on error. */
 
-    dst_buf += read_bytes;
+    buf += read_bytes;
     size -= read_bytes;
     total += read_bytes;
 
@@ -1060,22 +1045,24 @@ RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Read(RS232_FD fd, void *buf, size_t siz
   return total;
 }
 
-RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int timeout_msec)
+RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Write(RS232_FD fd, const void *_buf, size_t size, int flags, int timeout_msec)
 {
 
   ssize_t total = 0;
-  const uint8_t *dst_buf = buf;
+  const uint8_t *buf = _buf;
   struct timespec start, end, diff;
 
   while (size > 0)
   {
+    RS232_FPRINTF_DEBUG(stderr, "%s:%d: %p, %d\n", __FUNCTION__, __LINE__, buf, (int)size);
+
     clock_gettime(CLOCK_MONOTONIC, &start);
-    ssize_t written_bytes = _RS232_Write(fd, dst_buf, size, flags, timeout_msec);
+    ssize_t written_bytes = _RS232_Write(fd, buf, size, flags, timeout_msec);
     clock_gettime(CLOCK_MONOTONIC, &end);
 
     if (written_bytes < 0) break; /* Break on error. */
 
-    dst_buf += written_bytes;
+    buf += written_bytes;
     size -= written_bytes;
     total += written_bytes;
 
