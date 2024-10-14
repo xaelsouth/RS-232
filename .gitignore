@@ -1,14 +1,7 @@
-#
 *
-#
 !*.[ch]
-#
 !.gitignore
-#
-!gpl.txt
-!doc.txt
-!howto_compile.txt
 !LICENSE
 !Makefile
-!README.md
-#
+!*.md
+!*.txt
