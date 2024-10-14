@@ -31,6 +31,7 @@
  *                                                   https://www.teuniz.net/RS-232
  */
 
+#include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -366,7 +367,7 @@ int RS232_Close(RS232_FD fd)
   return close(fd);
 }
 
-ssize_t RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_msec)
+static ssize_t _RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_msec)
 {
 
   ssize_t read_bytes = -1;
@@ -407,7 +408,7 @@ ssize_t RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_m
   return read_bytes;
 }
 
-ssize_t RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int timeout_msec)
+static ssize_t _RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int timeout_msec)
 {
 
   ssize_t written_bytes = -1;
@@ -608,7 +609,35 @@ int RS232_flushRXTX(RS232_FD fd)
 RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate, const char *mode, int flags)
 {
 
-  char mode_str[128];
+  DCB port_settings = {
+    .DCBlength = sizeof(port_settings),
+    .fBinary = TRUE,
+    .fParity = FALSE,
+    .fOutxCtsFlow = FALSE,
+    .fOutxDsrFlow = FALSE,
+    .fDtrControl = DTR_CONTROL_DISABLE,
+    .fDsrSensitivity = FALSE,
+    .fTXContinueOnXoff = 0,
+    .fOutX = FALSE,
+    .fInX = FALSE,
+    .fErrorChar = FALSE,
+    .fNull = FALSE,
+    .fRtsControl = RTS_CONTROL_ENABLE,
+    .fAbortOnError = FALSE,
+    .fDummy2 = 0,
+    .wReserved = 0,
+    .XonLim = 0,
+    .XoffLim = 0,
+    .ByteSize = 8,
+    .Parity = NOPARITY,
+    .StopBits = ONESTOPBIT,
+    .XonChar = 0,
+    .XoffChar = 0,
+    .ErrorChar = 0,
+    .EofChar = 0,
+    .EvtChar = 0,
+    .wReserved1 = 0,
+  };
 
   if (devname == NULL)
   {
@@ -619,61 +648,43 @@ RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate
   switch (baudrate)
   {
     case     110 :
-      strcpy(mode_str, "baud=110");
+      port_settings.BaudRate = CBR_110;
       break;
     case     300 :
-      strcpy(mode_str, "baud=300");
+      port_settings.BaudRate = CBR_300;
       break;
     case     600 :
-      strcpy(mode_str, "baud=600");
+      port_settings.BaudRate = CBR_600;
       break;
     case    1200 :
-      strcpy(mode_str, "baud=1200");
+      port_settings.BaudRate = CBR_1200;
       break;
     case    2400 :
-      strcpy(mode_str, "baud=2400");
+      port_settings.BaudRate = CBR_2400;
       break;
     case    4800 :
-      strcpy(mode_str, "baud=4800");
+      port_settings.BaudRate = CBR_4800;
       break;
     case    9600 :
-      strcpy(mode_str, "baud=9600");
+      port_settings.BaudRate = CBR_9600;
       break;
     case   19200 :
-      strcpy(mode_str, "baud=19200");
+      port_settings.BaudRate = CBR_19200;
       break;
     case   38400 :
-      strcpy(mode_str, "baud=38400");
+      port_settings.BaudRate = CBR_38400;
       break;
     case   57600 :
-      strcpy(mode_str, "baud=57600");
+      port_settings.BaudRate = CBR_57600;
       break;
     case  115200 :
-      strcpy(mode_str, "baud=115200");
+      port_settings.BaudRate = CBR_115200;
       break;
     case  128000 :
-      strcpy(mode_str, "baud=128000");
+      port_settings.BaudRate = CBR_128000;
       break;
     case  256000 :
-      strcpy(mode_str, "baud=256000");
-      break;
-    case  500000 :
-      strcpy(mode_str, "baud=500000");
-      break;
-    case  921600 :
-      strcpy(mode_str, "baud=921600");
-      break;
-    case 1000000 :
-      strcpy(mode_str, "baud=1000000");
-      break;
-    case 1500000 :
-      strcpy(mode_str, "baud=1500000");
-      break;
-    case 2000000 :
-      strcpy(mode_str, "baud=2000000");
-      break;
-    case 3000000 :
-      strcpy(mode_str, "baud=3000000");
+      port_settings.BaudRate = CBR_256000;
       break;
     default      :
       RS232_FPRINTF(stderr, "Invalid baudrate.\n");
@@ -690,16 +701,16 @@ RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate
   switch (mode[0])
   {
     case '8':
-      strcat(mode_str, " data=8");
+      port_settings.ByteSize = 8;
       break;
     case '7':
-      strcat(mode_str, " data=7");
+      port_settings.ByteSize = 7;
       break;
     case '6':
-      strcat(mode_str, " data=6");
+      port_settings.ByteSize = 6;
       break;
     case '5':
-      strcat(mode_str, " data=5");
+      port_settings.ByteSize = 5;
       break;
     default :
       RS232_FPRINTF(stderr, "Invalid number of data-bits '%c'.\n", mode[0]);
@@ -712,17 +723,17 @@ RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate
     case 'N':
       /* FALLTHRU */
     case 'n':
-      strcat(mode_str, " parity=n");
+      port_settings.Parity = NOPARITY;
       break;
     case 'E':
       /* FALLTHRU */
     case 'e':
-      strcat(mode_str, " parity=e");
+      port_settings.Parity = EVENPARITY;
       break;
     case 'O':
       /* FALLTHRU */
     case 'o':
-      strcat(mode_str, " parity=o");
+      port_settings.Parity = ODDPARITY;
       break;
     default :
       RS232_FPRINTF(stderr, "Invalid parity '%c'.\n", mode[1]);
@@ -733,10 +744,10 @@ RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate
   switch (mode[2])
   {
     case '1':
-      strcat(mode_str, " stop=1");
+      port_settings.StopBits = ONESTOPBIT;
       break;
     case '2':
-      strcat(mode_str, " stop=2");
+      port_settings.StopBits = TWOSTOPBITS;
       break;
     default :
       RS232_FPRINTF(stderr, "Invalid number of stop bits '%c'.\n", mode[2]);
@@ -746,11 +757,8 @@ RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate
 
   if ((flags & RS232_FLAGS_HWFLOWCTRL) == RS232_FLAGS_HWFLOWCTRL)
   {
-    strncat(mode_str, " xon=off to=off odsr=off dtr=off rts=off", sizeof(mode_str) - strlen(mode_str));
-  }
-  else
-  {
-    strncat(mode_str, " xon=off to=off odsr=off dtr=off rts=on", sizeof(mode_str) - strlen(mode_str));
+    port_settings.fOutxCtsFlow = TRUE;
+    port_settings.fRtsControl = RTS_CONTROL_HANDSHAKE;
   }
 
   /*
@@ -775,31 +783,6 @@ RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate
   if (fd == RS232_INVALID_FD)
   {
     RS232_FPRINTF(stderr, "Unable to open comport %s.\n", devname);
-    return RS232_INVALID_FD;
-  }
-
-  DCB port_settings = { 0 };
-  port_settings.DCBlength = sizeof(port_settings);
-
-  if (!BuildCommDCBA(mode_str, &port_settings))
-  {
-    RS232_FPRINTF(stderr, "Unable to set comport dcb settings.\n");
-    CloseHandle(fd);
-    return RS232_INVALID_FD;
-  }
-
-  port_settings.fBinary = 1;
-
-  if ((flags & RS232_FLAGS_HWFLOWCTRL) == RS232_FLAGS_HWFLOWCTRL)
-  {
-    port_settings.fOutxCtsFlow = TRUE;
-    port_settings.fRtsControl = RTS_CONTROL_HANDSHAKE;
-  }
-
-  if (!SetCommState(fd, &port_settings))
-  {
-    RS232_FPRINTF(stderr, "Unable to set comport cfg settings.\n");
-    CloseHandle(fd);
     return RS232_INVALID_FD;
   }
 
@@ -828,7 +811,7 @@ RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate
   return fd;
 }
 
-RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_msec)
+static ssize_t _RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_msec)
 {
 
   ssize_t read_bytes;
@@ -870,7 +853,7 @@ RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Read(RS232_FD fd, void *buf, size_t siz
   return read_bytes;
 }
 
-RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int timeout_msec)
+static ssize_t _RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int timeout_msec)
 {
 
   ssize_t written_bytes;
@@ -1048,3 +1031,59 @@ RS232_ADDAPI int RS232_ADDCALL RS232_flushRXTX(RS232_FD fd)
 }
 
 #endif
+
+RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Read(RS232_FD fd, void *buf, size_t size, int flags, int timeout_msec)
+{
+
+  ssize_t total = 0;
+  uint8_t *dst_buf = buf;
+  struct timespec start, end, diff;
+
+  while (size > 0)
+  {
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    ssize_t read_bytes = _RS232_Read(fd, dst_buf, size, flags, timeout_msec);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    if (read_bytes < 0) break; /* Break on error. */
+
+    dst_buf += read_bytes;
+    size -= read_bytes;
+    total += read_bytes;
+
+    timerspecsub(&end, &start, &diff);
+    timeout_msec -= timespecsub_to_msec(&diff);
+
+    if (timeout_msec <= 0) break; /* Time is up. */
+  }
+
+  return total;
+}
+
+RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Write(RS232_FD fd, const void *buf, size_t size, int flags, int timeout_msec)
+{
+
+  ssize_t total = 0;
+  const uint8_t *dst_buf = buf;
+  struct timespec start, end, diff;
+
+  while (size > 0)
+  {
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    ssize_t written_bytes = _RS232_Write(fd, dst_buf, size, flags, timeout_msec);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    if (written_bytes < 0) break; /* Break on error. */
+
+    dst_buf += written_bytes;
+    size -= written_bytes;
+    total += written_bytes;
+
+    timerspecsub(&end, &start, &diff);
+    timeout_msec -= timespecsub_to_msec(&diff);
+
+    if (timeout_msec <= 0) break; /* Time is up. */
+  }
+
+  return total;
+}

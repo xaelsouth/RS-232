@@ -27,7 +27,9 @@ Compiling the demo can be done as follows:
   * gcc demo_tx.c rs232.c -Wall -Wextra -o test_tx
   * gcc test_rs232.c rs232.c -Wall -Wextra -o test_rs232
 
-Or use the Makefile by entering "make".
+Or use the Makefile by entering "make". When on Windows you may need to download an
+appropriate toolchain from https://github.com/skeeto/w64devkit/releases or
+https://winlibs.com.
 
 Run the demo by typing:
   * ./test_rx
@@ -35,4 +37,3 @@ Run the demo by typing:
   * ./test_rs232
 
 test_rs232 implements multiple unit tests. Use null-modem cable to be able to run them.
-

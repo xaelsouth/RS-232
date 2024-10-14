@@ -31,66 +31,15 @@
  *                                                   https://www.teuniz.net/RS-232
  */
 
-#ifndef rs232_INCLUDED
-#define rs232_INCLUDED
+#ifndef RS232_H_INCLUDED
+#define RS232_H_INCLUDED
 
-#if !defined(WINDOWS_BUILD)
-#if defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
-#define WINDOWS_BUILD 1
-#else
-#define WINDOWS_BUILD 0
-#endif
-#endif
-
-#if WINDOWS_BUILD == 0
-#include <termios.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/file.h>
-#include <errno.h>
+#include <stddef.h>
+#include "rs232_platform.h"
 
 #ifndef WITH_RS232_LOCK
 #define WITH_RS232_LOCK  0
 #endif
-
-#define RS232_ADDAPI
-#define RS232_ADDCALL
-
-typedef int RS232_FD;
-
-#define RS232_INVALID_FD    -1
-
-#else
-#include <windows.h>
-
-/* You must define RS232_ADD_EXPORTS _only_ when building the DLL. */
-#ifdef RS232_ADD_EXPORTS
-  #define RS232_ADDAPI __declspec(dllexport)
-#else
-  #define RS232_ADDAPI __declspec(dllimport)
-#endif
-
-#define RS232_ADDCALL __cdecl
-
-typedef HANDLE RS232_FD;
-
-#define RS232_INVALID_FD    INVALID_HANDLE_VALUE
-
-#ifndef _SSIZE_T_DEFINED
-#ifdef  _WIN64
-typedef __int64 ssize_t;
-#else
-typedef _W64 int ssize_t;
-#endif /* defined(_WIN64) */
-#define _SSIZE_T_DEFINED
-#endif /* !_SSIZE_T_DEFINED */
-
-#endif
-
-#include <stddef.h>
 
 /** Hardware flow control is enabled using the RTS/CTS lines. */
 #define RS232_FLAGS_HWFLOWCTRL  (1 << 0)
@@ -279,4 +228,4 @@ RS232_ADDAPI int RS232_ADDCALL RS232_flushRXTX(RS232_FD fd);
 } /* extern "C" */
 #endif
 
-#endif
+#endif /* RS232_H_INCLUDED */

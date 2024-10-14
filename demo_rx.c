@@ -14,14 +14,8 @@ compile with the command: gcc demo_rx.c rs232.c -Wall -Wextra -o test_rx
 #include <stdio.h>
 #include <stdbool.h>
 #include <ctype.h>
-
 #include "rs232.h"
 
-#if WINDOWS_BUILD == 0
-#include <unistd.h>
-#else
-#include <windows.h>
-#endif
 
 int main(int argc, char *argv[])
 {

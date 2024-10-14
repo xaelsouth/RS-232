@@ -15,15 +15,6 @@ compile with the command: gcc demo_tx.c rs232.c -Wall -Wextra -o test_tx
 #include <stdbool.h>
 #include "rs232.h"
 
-#if WINDOWS_BUILD == 0
-#include <unistd.h>
-
-#define sleep(msecs) usleep(msecs*1000)
-#else
-#include <windows.h>
-
-#define sleep(msecs) Sleep(msecs)
-#endif
 
 int main(int argc, char *argv[])
 {
@@ -58,7 +49,7 @@ int main(int argc, char *argv[])
   for (int i = 0; true; i ^= 1)
   {
     RS232_Write(fd, str[i], strlen(str[i]), flags_write, write_timeout);
-    sleep(1000);
+    msleep(1000);
   }
 
   return EXIT_SUCCESS;

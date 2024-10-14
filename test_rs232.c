@@ -14,20 +14,7 @@ Compile with the command: gcc test_rs232.c rs232.c -Wall -Wextra -o test_rs232
 #include <stdio.h>
 #include <stdbool.h>
 #include <ctype.h>
-
 #include "rs232.h"
-
-#if WINDOWS_BUILD == 0
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-
-#define sleep(msecs) usleep(msecs*1000)
-#else
-#include <windows.h>
-
-#define sleep(msecs) Sleep(msecs)
-#endif
 
 #if defined(NDEBUG)
 #define my_assert(expr) do { if (!(expr)) abort(); } while(0)
@@ -182,7 +169,7 @@ static void test_break(RS232_FD src, RS232_FD dst)
     err = RS232_enableBREAK(src);
     my_assert(err == 0);
 
-    sleep(1);
+    msleep(1);
 
     err = RS232_disableBREAK(src);
     my_assert(err == 0);
@@ -317,6 +304,8 @@ int main(int argc, char *argv[])
   test_hwflowcontrol(argv[1], argv[2], 115200, "8O1");
   test_hwflowcontrol(argv[1], argv[2], 115200, "8N1");
   test_hwflowcontrol2(argv[1], argv[2], 2400, "8N1");
+
+  fprintf(stdout, "All tests passed!\n");
 
   return EXIT_SUCCESS;
 }
