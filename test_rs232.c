@@ -27,7 +27,7 @@ Compile with the command: gcc test_rs232.c rs232.c -Wall -Wextra -o test_rs232
 static void test_write_read_256bytes(RS232_FD src, RS232_FD dst)
 {
 
-  int flags = 0, timeout_msec = 1000;
+  int flags = 0, timeout_msec = 1000, err;
   ssize_t written_bytes = 0, read_bytes = 0;
   uint8_t tx_buf[256], rx_buf[256];
 
@@ -36,6 +36,12 @@ static void test_write_read_256bytes(RS232_FD src, RS232_FD dst)
     tx_buf[i] = i;
     rx_buf[i] = 0;
   }
+
+  err = RS232_flushRXTX(src);
+  my_assert(err == 0);
+
+  err = RS232_flushRXTX(dst);
+  my_assert(err == 0);
 
   written_bytes = RS232_Write(src, tx_buf, sizeof(tx_buf), flags, timeout_msec);
   my_assert(written_bytes == sizeof(tx_buf));
@@ -52,7 +58,7 @@ static void test_write_read_256bytes(RS232_FD src, RS232_FD dst)
 static void test_write_read_256bytes_nonblocking(RS232_FD src, RS232_FD dst)
 {
 
-  int flags = 0, timeout_msec = 0;
+  int flags = 0, timeout_msec = 0, err;
   ssize_t written_bytes = 0, read_bytes = 0;
   uint8_t tx_buf[256], rx_buf[256];
 
@@ -61,6 +67,12 @@ static void test_write_read_256bytes_nonblocking(RS232_FD src, RS232_FD dst)
     tx_buf[i] = i;
     rx_buf[i] = 0;
   }
+
+  err = RS232_flushRXTX(src);
+  my_assert(err == 0);
+
+  err = RS232_flushRXTX(dst);
+  my_assert(err == 0);
 
   do
   {
@@ -243,6 +255,12 @@ static void test_hwflowcontrol2(const char *argv_1, const char *argv_2, int baud
   my_assert(status == 1);
   status = RS232_IsCTSEnabled(dst);
   my_assert(status == 1);
+
+  err = RS232_flushRXTX(src);
+  my_assert(err == 0);
+
+  err = RS232_flushRXTX(dst);
+  my_assert(err == 0);
 
   for (int i = 0; i < 5000 && status == 1; i++)
   {

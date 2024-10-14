@@ -565,7 +565,7 @@ int RS232_disableRTS(RS232_FD fd)
 int RS232_enableBREAK(RS232_FD fd)
 {
 
-  if (ioctl(fd, TIOCSBRK, NULL) == -1)  /* Turn break on, that is, start sending zero bits. */
+  if (tcsendbreak(fd, 0) == -1)  /* Turn break on, that is, start sending zero bits. */
   {
     RS232_FPRINTF(stderr, "Unable to turn break on.\n");
     return -1;
