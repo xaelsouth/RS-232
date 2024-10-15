@@ -621,7 +621,6 @@ RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate
     return RS232_INVALID_FD;
   }
 
-
   /*
    * https://msdn.microsoft.com/en-us/library/windows/desktop/aa363145%28v=vs.85%29.aspx
    * https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-buildcommdcbandtimeoutsa
@@ -647,7 +646,7 @@ RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate
     return RS232_INVALID_FD;
   }
 
-  DCB port_settings = { 0 };
+  DCB port_settings;
 
   if (!GetCommState(fd, &port_settings))
   {
@@ -769,6 +768,15 @@ RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate
     port_settings.fOutxCtsFlow = TRUE;
     port_settings.fRtsControl = RTS_CONTROL_HANDSHAKE;
   }
+  else
+  {
+    port_settings.fOutxCtsFlow = FALSE;
+    port_settings.fRtsControl = RTS_CONTROL_ENABLE;
+  }
+
+  port_settings.fOutxDsrFlow = FALSE;
+  port_settings.fDsrSensitivity = FALSE;
+  port_settings.fDtrControl = DTR_CONTROL_DISABLE;
 
   if (!SetCommState(fd, &port_settings))
   {
@@ -1024,7 +1032,7 @@ RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Read(RS232_FD fd, void *_buf, size_t si
 
   while (size > 0)
   {
-    RS232_FPRINTF_DEBUG(stderr, "%s:%d: %p, %d\n", __FUNCTION__, __LINE__, buf, (int)size);
+    RS232_FPRINTF_DEBUG(stderr, "%s:%d: %p, %zu\n", __FUNCTION__, __LINE__, buf, size);
 
     clock_gettime(CLOCK_MONOTONIC, &start);
     ssize_t read_bytes = _RS232_Read(fd, buf, size, flags, timeout_msec);
@@ -1054,7 +1062,7 @@ RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Write(RS232_FD fd, const void *_buf, si
 
   while (size > 0)
   {
-    RS232_FPRINTF_DEBUG(stderr, "%s:%d: %p, %d\n", __FUNCTION__, __LINE__, buf, (int)size);
+    RS232_FPRINTF_DEBUG(stderr, "%s:%d: %p, %zu\n", __FUNCTION__, __LINE__, buf, size);
 
     clock_gettime(CLOCK_MONOTONIC, &start);
     ssize_t written_bytes = _RS232_Write(fd, buf, size, flags, timeout_msec);

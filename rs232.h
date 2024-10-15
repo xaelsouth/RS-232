@@ -38,7 +38,7 @@
 #include "rs232_platform.h"
 
 #ifndef WITH_RS232_LOCK
-#define WITH_RS232_LOCK  0
+#define WITH_RS232_LOCK  1
 #endif
 
 /** Hardware flow control is enabled using the RTS/CTS lines. */
