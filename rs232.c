@@ -38,6 +38,12 @@
 #include <assert.h>
 #include "rs232.h"
 
+#if WITH_RS232_LOCK
+#define RS232_FLOCK(fd, operation)    flock(fd, operation)
+#else
+#define RS232_FLOCK(fd, operation)
+#endif
+
 #define RS232_PERROR(...)
 #define RS232_FPRINTF(fd, ...)
 #define RS232_FPRINTF_DEBUG(fd, ...)
@@ -66,6 +72,18 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
   if (devname == NULL)
   {
     RS232_FPRINTF(stderr, "Illegal device.\n");
+    return RS232_INVALID_FD;
+  }
+
+  if (mode == NULL)
+  {
+    RS232_FPRINTF(stderr, "Invalid mode.\n");
+    return RS232_INVALID_FD;
+  }
+
+  if (strlen(mode) != 3)
+  {
+    RS232_FPRINTF(stderr, "Invalid mode '%s'.\n", mode);
     return RS232_INVALID_FD;
   }
 
@@ -169,18 +187,6 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
       break;
   }
 
-  if (mode == NULL)
-  {
-    RS232_FPRINTF(stderr, "Invalid mode.\n");
-    return RS232_INVALID_FD;
-  }
-
-  if (strlen(mode) != 3)
-  {
-    RS232_FPRINTF(stderr, "Invalid mode '%s'.\n", mode);
-    return RS232_INVALID_FD;
-  }
-
   switch (mode[0])
   {
     case '8':
@@ -255,7 +261,7 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
 
   #if WITH_RS232_LOCK
   /* lock access so that another process can't also use the port */
-  if (flock(fd, LOCK_EX | LOCK_NB) != 0)
+  if (RS232_FLOCK(fd, LOCK_EX | LOCK_NB) != 0)
   {
     close(fd);
     RS232_PERROR("Another process has locked the comport.");
@@ -267,9 +273,7 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
   err = tcgetattr(fd, &old_port_settings);
   if (err == -1)
   {
-    #if WITH_RS232_LOCK
-    flock(fd, LOCK_UN);  /* free the port so that others can use it. */
-    #endif
+    RS232_FLOCK(fd, LOCK_UN);  /* free the port so that others can use it. */
     close(fd);
     RS232_PERROR("Unable to read portsettings ");
     return RS232_INVALID_FD;
@@ -294,9 +298,7 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
   if (err == -1)
   {
     tcsetattr(fd, TCSANOW, &old_port_settings);
-    #if WITH_RS232_LOCK
-    flock(fd, LOCK_UN);  /* free the port so that others can use it. */
-    #endif
+    RS232_FLOCK(fd, LOCK_UN);  /* free the port so that others can use it. */
     close(fd);
     RS232_PERROR("Unable to adjust portsettings ");
     return RS232_INVALID_FD;
@@ -308,9 +310,7 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
   if (err == -1)
   {
     tcsetattr(fd, TCSANOW, &old_port_settings);
-    #if WITH_RS232_LOCK
-    flock(fd, LOCK_UN);  /* free the port so that others can use it. */
-    #endif
+    RS232_FLOCK(fd, LOCK_UN);  /* free the port so that others can use it. */
     close(fd);
     RS232_PERROR("Unable to get portstatus ");
     return RS232_INVALID_FD;
@@ -327,9 +327,7 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
   if (err == -1)
   {
     tcsetattr(fd, TCSANOW, &old_port_settings);
-    #if WITH_RS232_LOCK
-    flock(fd, LOCK_UN);  /* free the port so that others can use it. */
-    #endif
+    RS232_FLOCK(fd, LOCK_UN);  /* free the port so that others can use it. */
     close(fd);
     RS232_PERROR("Unable to set portstatus ");
     return RS232_INVALID_FD;
@@ -360,9 +358,7 @@ int RS232_Close(RS232_FD fd)
     return -1;
   }
 
-  #if WITH_RS232_LOCK
-  flock(fd, LOCK_UN);
-  #endif
+  RS232_FLOCK(fd, LOCK_UN);
 
   return close(fd);
 }
@@ -615,9 +611,15 @@ RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate
     return RS232_INVALID_FD;
   }
 
+  if (mode == NULL)
+  {
+    RS232_FPRINTF(stderr, "Invalid mode.\n");
+    return RS232_INVALID_FD;
+  }
+
   if (strlen(mode) != 3)
   {
-    RS232_FPRINTF(stderr, "invalid mode \"%s\"\n", mode);
+    RS232_FPRINTF(stderr, "Invalid mode '%s'.\n", mode);
     return RS232_INVALID_FD;
   }
 

@@ -1,13 +1,18 @@
 #ifndef RS232_PLATFORM_H_INCLUDED
 #define RS232_PLATFORM_H_INCLUDED
 
+#if !defined(WINDOWS_BUILD)
+#if defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64) || defined(__CYGWIN__)
+#define WINDOWS_BUILD 1
+#else
+#define WINDOWS_BUILD 0
+#endif
+#endif
+
 #include <time.h>
 
-#if !defined(WINDOWS_BUILD)
-#if defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
+#if WINDOWS_BUILD
 #include <windows.h>
-
-#define WINDOWS_BUILD 1
 
 #ifndef _SSIZE_T_DEFINED
 #ifdef  _WIN64
@@ -41,8 +46,6 @@ typedef HANDLE RS232_FD;
 #include <sys/file.h>
 #include <errno.h>
 
-#define WINDOWS_BUILD 0
-
 #define RS232_ADDAPI
 #define RS232_ADDCALL
 
@@ -51,7 +54,6 @@ typedef int RS232_FD;
 #define RS232_INVALID_FD    -1
 
 #define msleep(msecs) usleep(msecs*1000)
-#endif
 #endif
 
 static inline void timerspecsub(const struct timespec *a, const struct timespec *b, struct timespec *result)
