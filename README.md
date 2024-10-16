@@ -14,10 +14,10 @@ What is different to the original version:
   * RS232 can be build as shared object.
 
 To include this library into your project:
-  * Put the two files rs232.h and rs232.c in your project source directory.
+  * Put the three files rs232_platform.h, rs232.h and rs232.c in your project source directory.
   * Write #include "rs232.h" in your sourcefiles that needs access to the library.
-  * Add the file rs232.c to your project settings in order to get it compiled and
-    linked with your program.
+  * Add the file rs232.c to your project settings in order to get it compiled and linked with
+    your program.
 
 Or just link your project with librs232.so.
 
