@@ -33,8 +33,10 @@ endif
 
 ifeq ($(OS),Windows_NT)
 #LDFLAGS += -Wl,--subsystem,windows
+SO = .dll
 EXE = .exe
 else
+SO = .so
 EXE =
 endif
 
@@ -42,7 +44,7 @@ endif
 all: test_rx test_tx test_rs232
 
 clean :
-	$(RM) *.o *.so test_rx$(EXE) test_tx$(EXE) test_rs232$(EXE)
+	$(RM) *.o *$(SO) test_rx$(EXE) test_tx$(EXE) test_rs232$(EXE)
 
 cleanall: clean all
 
@@ -51,13 +53,13 @@ rebuild: clean all
 lib: librs232.so
 
 test_rx : demo_rx.o librs232.so
-	$(CC) $(CFLAGS) $(CPPFLAGS) -o test_rx$(EXE) $(LDFLAGS) demo_rx.o -l:librs232.so
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o test_rx$(EXE) $(LDFLAGS) demo_rx.o -l:librs232$(SO)
 
 test_tx : demo_tx.o librs232.so
-	$(CC) $(CFLAGS) $(CPPFLAGS) -o test_tx$(EXE) $(LDFLAGS) demo_tx.o -l:librs232.so
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o test_tx$(EXE) $(LDFLAGS) demo_tx.o -l:librs232$(SO)
 
 test_rs232 : test_rs232.o librs232.so
-	$(CC) $(CFLAGS) $(CPPFLAGS) -o test_rs232$(EXE) $(LDFLAGS) test_rs232.o -l:librs232.so
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o test_rs232$(EXE) $(LDFLAGS) test_rs232.o -l:librs232$(SO)
 
 demo_rx.o : demo_rx.c rs232.h rs232_platform.h
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c demo_rx.c -o $@
@@ -72,4 +74,4 @@ rs232.o : rs232.h rs232_platform.h rs232.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -DRS232_ADD_EXPORTS -fPIC -c rs232.c -o $@
 
 librs232.so: rs232.o
-	$(CC) -shared -o $@ $(LDFLAGS) rs232.o
+	$(CC) -shared -o librs232$(SO) $(LDFLAGS) rs232.o
