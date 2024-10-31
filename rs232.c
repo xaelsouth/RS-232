@@ -35,7 +35,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 #include "rs232.h"
 
 #define RS232_PERROR(...)
@@ -57,7 +56,7 @@
 
 #if WINDOWS_BUILD == 0
 
-RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int flags)
+RS232_FD _RS232_Open(const char *devname, int baudrate, const char *mode, int flags)
 {
 
   int cbits = CS8, cpar = 0, ipar = IGNPAR, bstop = 0;
@@ -272,7 +271,7 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
     return RS232_INVALID_FD;
   }
 
-  struct termios new_port_settings = { 0 };
+  struct termios new_port_settings = old_port_settings;
   new_port_settings.c_cflag = cbits | cpar | bstop | CLOCAL | CREAD;
   if ((flags & RS232_FLAGS_HWFLOWCTRL) == RS232_FLAGS_HWFLOWCTRL)
   {
@@ -287,7 +286,11 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
   cfsetispeed(&new_port_settings, baudrate);
   cfsetospeed(&new_port_settings, baudrate);
 
+  bool debian_bug_218131;
+
   err = tcsetattr(fd, TCSANOW, &new_port_settings);
+  debian_bug_218131 = (err == -1);
+  if (debian_bug_218131) return fd;
   if (err == -1)
   {
     tcsetattr(fd, TCSANOW, &old_port_settings);
@@ -299,6 +302,8 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
   /* https://man7.org/linux/man-pages/man4/tty_ioctl.4.html */
 
   err = ioctl(fd, TIOCMGET, &status);
+  debian_bug_218131 = (err == -1);
+  if (debian_bug_218131) return fd;
   if (err == -1)
   {
     tcsetattr(fd, TCSANOW, &old_port_settings);
@@ -315,6 +320,8 @@ RS232_FD RS232_Open(const char *devname, int baudrate, const char *mode, int fla
   }
 
   err = ioctl(fd, TIOCMSET, &status);
+  debian_bug_218131 = (err == -1);
+  if (debian_bug_218131) return fd;
   if (err == -1)
   {
     tcsetattr(fd, TCSANOW, &old_port_settings);
@@ -330,8 +337,11 @@ int RS232_Close(RS232_FD fd)
 {
 
   int status, err;
+  bool debian_bug_218131;
 
   err = ioctl(fd, TIOCMGET, &status);
+  debian_bug_218131 = (err == -1);
+  if (debian_bug_218131) return close(fd);
   if (err == -1)
   {
     RS232_PERROR("Unable to get portstatus");
@@ -342,6 +352,8 @@ int RS232_Close(RS232_FD fd)
   status &= ~TIOCM_RTS;    /* turn off RTS */
 
   err = ioctl(fd, TIOCMSET, &status);
+  debian_bug_218131 = (err == -1);
+  if (debian_bug_218131) return close(fd);
   if (err == -1)
   {
     RS232_PERROR("Unable to set portstatus");
@@ -590,7 +602,7 @@ int RS232_flushRXTX(RS232_FD fd)
 
 #else  /* Windows */
 
-RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate, const char *mode, int flags)
+RS232_FD _RS232_Open(const char *devname, int baudrate, const char *mode, int flags)
 {
 
   if (devname == NULL)
@@ -1075,4 +1087,20 @@ RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Write(RS232_FD fd, const void *_buf, si
   }
 
   return total;
+}
+
+RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate, const char *mode, int flags)
+{
+
+  int attempts = 15;
+
+  RS232_FD fd = _RS232_Open(devname, baudrate, mode, flags);
+
+  while (fd == RS232_INVALID_FD && attempts--)
+  {
+    msleep(1000);
+    fd = _RS232_Open(devname, baudrate, mode, flags);
+  }
+
+  return fd;
 }
