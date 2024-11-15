@@ -1092,14 +1092,15 @@ RS232_ADDAPI ssize_t RS232_ADDCALL RS232_Write(RS232_FD fd, const void *_buf, si
 RS232_ADDAPI RS232_FD RS232_ADDCALL RS232_Open(const char *devname, int baudrate, const char *mode, int flags)
 {
 
-  int attempts = 15;
+  int attempts = 15; /* Empirical value to wait up to 15 seconds. */
 
   RS232_FD fd = _RS232_Open(devname, baudrate, mode, flags);
 
-  while (fd == RS232_INVALID_FD && attempts--)
+  while (fd == RS232_INVALID_FD && attempts > 0)
   {
     msleep(1000);
     fd = _RS232_Open(devname, baudrate, mode, flags);
+    attempts--;
   }
 
   return fd;
